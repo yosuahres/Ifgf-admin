@@ -1,8 +1,25 @@
+'use client';
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
+  const [authorized, setAuthorized] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("role");
+      if (role === "admin") {
+        setAuthorized(true);
+      } else {
+        window.location.href = "/login";
+      }
+    }
+  }, []);
+
+  if (!authorized) return null;
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />

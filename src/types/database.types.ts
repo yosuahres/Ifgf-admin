@@ -23,6 +23,25 @@ export interface Database {
 					email?: string;
 				};
 			};
+      profiles: {
+        Row: {
+          id: string;
+          full_name: string;
+          role: "admin" | "pastor" | "leader" | "user";
+          updated_at: string | null;
+        };
+        Insert: {
+          id: string;
+          full_name: string;
+          role?: "admin" | "pastor" | "leader" | "user";
+          updated_at?: string | null;
+        };
+        Update: {
+          full_name?: string;
+          role?: "admin" | "pastor" | "leader" | "user";
+          updated_at?: string | null;
+        };
+      };
 		};
 		Views: {};
 		Functions: {};
