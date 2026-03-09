@@ -19,7 +19,11 @@ export default function AuthForm({ type }: AuthFormProps) {
     setError("");
     if (type === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+      if (error) {
+        setError(error.message);
+      } else {
+        window.location.href = "/admin";
+      }
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
