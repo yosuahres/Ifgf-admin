@@ -16,37 +16,55 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
           cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({
-            request,
-          });
+          supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(name, value, options)
           );
         },
       },
-    },
+    }
   );
 
-  // IMPORTANT: DO NOT REMOVE auth.getUser()
-  // Refreshes the auth token and keeps the session alive.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect /admin route: redirect unauthenticated users or non-admins to /login
+  // /admin — must be authenticated + role === "admin"
   if (request.nextUrl.pathname.startsWith("/admin")) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
-    // Fetch user role from profiles
+
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
+
     if (profileError || !profile || profile.role !== "admin") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // /leader — must be authenticated + role === "leader"
+  if (request.nextUrl.pathname.startsWith("/leader")) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile || profile.role !== "leader") {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);

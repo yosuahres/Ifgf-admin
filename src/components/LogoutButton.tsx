@@ -1,4 +1,5 @@
 import React from "react";
+import { LogOut } from "lucide-react";
 
 interface LogoutButtonProps {
   onLogout: () => void;
@@ -6,10 +7,11 @@ interface LogoutButtonProps {
 
 const LogoutButton: React.FC<LogoutButtonProps> = ({ onLogout }) => (
   <button
-    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
     onClick={onLogout}
+    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
   >
-    Logout
+    <LogOut size={14} />
+    <span>Sign out</span>
   </button>
 );
 

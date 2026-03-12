@@ -1,0 +1,182 @@
+//admin/events/page.tsx
+'use client';
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import MasterDataTable from '@/components/MasterDataTable';
+import ModalForm from '@/components/ModalForm';
+
+export default function EventsPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const supabase = createClient();
+
+  const columns = [
+    { key: 'event_name', label: 'Nama Event' },
+    {
+      key: 'event_type',
+      label: 'Tipe',
+      render: (value: string) => value ? (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+          {value}
+        </span>
+      ) : '-',
+    },
+    {
+      key: 'event_date',
+      label: 'Tanggal',
+      render: (value: string) => value
+        ? new Date(value).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '-',
+    },
+    {
+      key: 'start_time',
+      label: 'Waktu',
+      render: (value: string, item: any) => {
+        if (!value) return '-';
+        const fmt = (t: string) => t.slice(0, 5);
+        return item.end_time ? `${fmt(value)} – ${fmt(item.end_time)}` : fmt(value);
+      },
+    },
+    { key: 'location', label: 'Lokasi' },
+    {
+      key: 'created_at',
+      label: 'Dibuat',
+      render: (value: string) => value
+        ? new Date(value).toLocaleDateString('id-ID')
+        : '-',
+    },
+  ];
+
+  const fields = [
+    {
+      name: 'event_name',
+      label: 'Nama Event',
+      type: 'text' as const,
+      required: true,
+      placeholder: 'e.g. Ibadah Natal 2025',
+    },
+    {
+      name: 'event_type',
+      label: 'Tipe Event',
+      type: 'select' as const,
+      required: false,
+      options: [
+        'Ibadah Umum',
+        'Ibadah Pemuda',
+        'Ibadah Anak',
+        'Retreat',
+        'Seminar',
+        'Konser',
+        'Baptisan',
+        'Pernikahan',
+        'Lainnya',
+      ].map(d => ({ value: d, label: d })),
+    },
+    {
+      name: 'event_date',
+      label: 'Tanggal',
+      type: 'date' as const,
+      required: true,
+    },
+    {
+      name: 'start_time',
+      label: 'Jam Mulai',
+      type: 'time' as const,
+      required: false,
+    },
+    {
+      name: 'end_time',
+      label: 'Jam Selesai',
+      type: 'time' as const,
+      required: false,
+    },
+    {
+      name: 'location',
+      label: 'Lokasi',
+      type: 'text' as const,
+      required: false,
+      placeholder: 'Nama tempat / alamat',
+    },
+    {
+      name: 'description',
+      label: 'Deskripsi',
+      type: 'textarea' as const,
+      required: false,
+      placeholder: 'Keterangan tambahan tentang event...',
+    },
+  ];
+
+  const handleAdd = () => {
+    setEditItem(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: any) => {
+    setEditItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string | number) => {
+    if (!confirm('Yakin ingin menghapus event ini?')) return;
+    const { error } = await supabase.from('events').delete().eq('id', id as string);
+    if (error) alert('Gagal menghapus: ' + error.message);
+  };
+
+  const handleSubmit = async (data: Record<string, any>) => {
+    setIsSubmitting(true);
+
+    const payload = {
+      event_name:  data.event_name,
+      event_type:  data.event_type  || null,
+      event_date:  data.event_date,
+      start_time:  data.start_time  || null,
+      end_time:    data.end_time    || null,
+      location:    data.location    || null,
+      description: data.description || null,
+    };
+
+    const { error } = editItem
+      ? await supabase.from('events').update(payload as any).eq('id', editItem.id)
+      : await supabase.from('events').insert(payload as any);
+
+    if (error) {
+      alert('Gagal menyimpan: ' + error.message);
+    } else {
+      setIsModalOpen(false);
+      setEditItem(null);
+    }
+
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Events</h1>
+        <p className="text-sm text-gray-500">Kelola jadwal dan kegiatan gereja</p>
+      </div>
+
+      <MasterDataTable
+        title="Events"
+        endpoint="/api/events"
+        columns={columns}
+        onAdd={handleAdd}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      <ModalForm
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setEditItem(null); }}
+        title={editItem ? 'Edit Event' : 'Tambah Event'}
+        fields={fields}
+        onSubmit={handleSubmit}
+        initialData={editItem}
+        submitText={editItem ? 'Simpan Perubahan' : 'Tambah Event'}
+        isLoading={isSubmitting}
+      />
+    </div>
+  );
+}

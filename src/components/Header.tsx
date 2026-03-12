@@ -1,4 +1,3 @@
-
 'use client';
 import LogoutButton from "./LogoutButton";
 import { logout } from "@/lib/supabase/logout";
@@ -8,12 +7,16 @@ export default function Header() {
     await logout();
     window.location.href = "/login";
   };
+
   return (
-    <header className="w-full bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 p-4 flex items-center justify-between">
-      <div className="text-xl font-bold text-zinc-900 dark:text-zinc-50">IFGF Admin Dashboard</div>
-      <div className="flex items-center gap-4">
-        <LogoutButton onLogout={handleLogout} />
+    <header className="w-full bg-white border-b border-gray-200 px-6 h-14 flex items-center justify-between shrink-0">
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+          <span className="text-white text-xs font-bold">IF</span>
+        </div>
+        <span className="font-semibold text-gray-900 text-sm">IFGF Admin</span>
       </div>
+      <LogoutButton onLogout={handleLogout} />
     </header>
   );
 }

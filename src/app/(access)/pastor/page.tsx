@@ -1,3 +1,4 @@
+//pastoral/page.tsx
 'use client';
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
@@ -10,7 +11,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const role = localStorage.getItem("role");
-      if (role === "admin") {
+      if (role === "pastor") {
         setAuthorized(true);
       } else {
         window.location.href = "/login";
@@ -23,12 +24,11 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0">
         <Sidebar />
         <main className="flex-1 p-8 bg-zinc-50 dark:bg-black">
-          {/* Dashboard content goes here */}
           <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
-          <p>Welcome to the admin dashboard!</p>
+          <p>Welcome to the pastor dashboard!</p>
         </main>
       </div>
       <Footer />

@@ -7,5 +7,4 @@ const supabase = createClient(
 
 export async function logout() {
   await supabase.auth.signOut();
-  // Optionally redirect or clear local state
 }

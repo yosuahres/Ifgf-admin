@@ -1,2 +1,2 @@
-export const SITE_NAME = "Rival";
-export const SITE_DESCRIPTION = "Rival — built with Next.js & Supabase";
+export const SITE_NAME = "IFGF Admin";
+export const SITE_DESCRIPTION = "IFGF Admin Dashboard";
