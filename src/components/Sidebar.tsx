@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { type NavItem, navByRole } from "@/constants/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { navByRole, type NavItem } from "@/constants/navigation";
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);

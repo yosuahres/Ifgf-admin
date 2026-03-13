@@ -1,9 +1,9 @@
 //pastoral/page.tsx
 "use client";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { useEffect, useState } from "react";
+import Footer from "@/components/Footer";
+import Header from "@/components/Header";
+import Sidebar from "@/components/Sidebar";
 
 export default function DashboardPage() {
   const [authorized, setAuthorized] = useState(false);

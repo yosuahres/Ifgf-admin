@@ -1,8 +1,8 @@
 //components/ModalForm.tsx
 "use client";
 
-import { useState } from "react";
 import { Plus, X } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface ModalFormProps {
   isOpen: boolean;
@@ -11,12 +11,13 @@ interface ModalFormProps {
   fields: {
     name: string;
     label: string;
-    type: "text" | "email" | "password" | "select" | "textarea";
+    type: "text" | "email" | "password" | "select" | "textarea" | "date" | "time";
     options?: { value: string; label: string }[];
     required?: boolean;
     placeholder?: string;
   }[];
   onSubmit: (data: Record<string, any>) => void;
+  initialData?: Record<string, any> | null;
   submitText?: string;
   isLoading?: boolean;
 }
@@ -27,16 +28,21 @@ export default function ModalForm({
   title,
   fields,
   onSubmit,
+  initialData,
   submitText = "Submit",
   isLoading = false,
 }: ModalFormProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    setFormData(initialData ?? {});
+    setErrors({});
+  }, [initialData, isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
     const newErrors: Record<string, string> = {};
     fields.forEach((field) => {
       if (field.required && !formData[field.name]) {

@@ -1,8 +1,8 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
 export async function handleLogout() {
   const supabase = await createClient();
@@ -11,7 +11,7 @@ export async function handleLogout() {
   if (error) {
     console.error("Logout error:", error.message);
   }
-  
+
   revalidatePath("/", "layout");
   redirect("/login");
 }

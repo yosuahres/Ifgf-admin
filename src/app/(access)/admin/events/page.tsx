@@ -4,6 +4,7 @@ import { useState } from "react";
 import MasterDataTable from "@/components/MasterDataTable";
 import ModalForm from "@/components/ModalForm";
 import { createClient } from "@/lib/supabase/client";
+import type { TablesInsert, TablesUpdate } from "@/types/database.types";
 
 export default function EventsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,7 +123,7 @@ export default function EventsPage() {
     setIsModalOpen(true);
   };
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: Event) => {
     setEditItem(item);
     setIsModalOpen(true);
   };
@@ -136,31 +137,43 @@ export default function EventsPage() {
     if (error) alert(`Gagal menghapus: ${error.message}`);
   };
 
-  const handleSubmit = async (data: Record<string, any>) => {
+  const handleSubmit = async (data: Record<string, string>) => {
     setIsSubmitting(true);
 
-    const payload = {
-      event_name: data.event_name,
-      event_type: data.event_type || null,
-      event_date: data.event_date,
-      start_time: data.start_time || null,
-      end_time: data.end_time || null,
-      location: data.location || null,
-      description: data.description || null,
-    };
+    if (editItem) {
+      const payload: TablesUpdate<"events"> = {
+        event_name: data.event_name,
+        event_type: data.event_type || null,
+        event_date: data.event_date,
+        start_time: data.start_time || null,
+        end_time: data.end_time || null,
+        location: data.location || null,
+        description: data.description || null,
+      };
 
-    const { error } = editItem
-      ? await supabase
-          .from("events")
-          .update(payload as any)
-          .eq("id", editItem.id)
-      : await supabase.from("events").insert(payload as any);
+      const { error } = await supabase
+        .from("events")
+        .update(payload)
+        .eq("id", editItem.id);
 
-    if (error) {
-      alert(`Gagal menyimpan: ${error.message}`);
+      if (error) alert(`Gagal menyimpan: ${error.message}`);
+      else { setIsModalOpen(false); setEditItem(null); }
+
     } else {
-      setIsModalOpen(false);
-      setEditItem(null);
+      const payload: TablesInsert<"events"> = {
+        event_name: data.event_name,
+        event_type: data.event_type || null,
+        event_date: data.event_date,
+        start_time: data.start_time || null,
+        end_time: data.end_time || null,
+        location: data.location || null,
+        description: data.description || null,
+      };
+
+      const { error } = await supabase.from("events").insert(payload);
+
+      if (error) alert(`Gagal menyimpan: ${error.message}`);
+      else { setIsModalOpen(false); setEditItem(null); }
     }
 
     setIsSubmitting(false);

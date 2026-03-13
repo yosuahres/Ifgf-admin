@@ -1,5 +1,5 @@
-import { createServerClient } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -17,54 +17,64 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
-  
   if (pathname === "/") {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  
-  if (!user && (pathname.startsWith('/admin') || pathname.startsWith('/leader'))) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (
+    !user &&
+    (pathname.startsWith("/admin") || pathname.startsWith("/leader"))
+  ) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   if (user) {
-    
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
       .single();
 
     const role = profile?.role;
-    
-    if (!role && (pathname.startsWith('/admin') || pathname.startsWith('/leader'))) {
-      return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
+
+    if (
+      !role &&
+      (pathname.startsWith("/admin") || pathname.startsWith("/leader"))
+    ) {
+      return NextResponse.redirect(
+        new URL("/login?error=unauthorized", request.url),
+      );
     }
 
-    if (role === 'admin' && pathname.startsWith('/leader')) {
-      return NextResponse.redirect(new URL('/admin', request.url));
+    if (role === "admin" && pathname.startsWith("/leader")) {
+      return NextResponse.redirect(new URL("/admin", request.url));
     }
 
-    if (role === 'leader' && pathname.startsWith('/admin')) {
-      return NextResponse.redirect(new URL('/leader', request.url));
+    if (role === "leader" && pathname.startsWith("/admin")) {
+      return NextResponse.redirect(new URL("/leader", request.url));
     }
-    
-    if (pathname.startsWith('/login')) {
-        const dest = role === 'admin' ? '/admin' : role === 'leader' ? '/leader' : '/';
-        return NextResponse.redirect(new URL(dest, request.url));
+
+    if (pathname.startsWith("/login")) {
+      const dest =
+        role === "admin" ? "/admin" : role === "leader" ? "/leader" : "/";
+      return NextResponse.redirect(new URL(dest, request.url));
     }
   }
 

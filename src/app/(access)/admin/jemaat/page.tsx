@@ -1,13 +1,14 @@
 // admin/jemaat/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import MasterDataTable from "@/components/MasterDataTable";
 import ModalForm from "@/components/ModalForm";
 import { createClient } from "@/lib/supabase/client";
-import { type Database } from "@/types/database.types";
+import type { Database } from "@/types/database.types";
 
 type Jemaat = Database["public"]["Tables"]["jemaat"]["Row"];
+type StatusJemaat = Database["public"]["Enums"]["status_jemaat_type"];
 type ProfileOption = { value: string; label: string };
 
 export default function JemaatPage() {
@@ -39,7 +40,7 @@ export default function JemaatPage() {
       .not("user_id", "is", null);
 
     const usedIds = new Set(
-      (jemaatList ?? []).map((j) => j.user_id).filter(Boolean),
+      (jemaatList ?? []).map((j) => j.user_id).filter((id): id is string => id !== null),
     );
     setAssignedUserIds(usedIds);
 
@@ -237,7 +238,7 @@ export default function JemaatPage() {
     else loadProfileOptions(); // refresh assigned list
   };
 
-  const handleSubmit = async (data: Record<string, any>) => {
+  const handleSubmit = async (data: Record<string, string>) => {
     setIsSubmitting(true);
 
     const payload = {
@@ -248,7 +249,7 @@ export default function JemaatPage() {
       gender: data.gender || null,
       dob: data.dob,
       alamat: data.alamat || null,
-      status_jemaat: data.status_jemaat || "aktif",
+      status_jemaat: (data.status_jemaat || "aktif") as StatusJemaat,
       marital_status: data.marital_status || null,
       is_baptized: data.is_baptized === "true",
       tanggal_baptis: data.tanggal_baptis || null,

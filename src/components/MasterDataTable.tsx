@@ -1,22 +1,22 @@
 //components/MasterDataTable.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Plus,
-  Pencil,
-  Trash2,
-  FileSpreadsheet,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  MoreVertical,
+  FileSpreadsheet,
   Loader2,
+  MoreVertical,
+  Pencil,
+  Plus,
   Search,
+  Trash2,
 } from "lucide-react";
-import { exportToExcel } from "../utils/exportutils";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchFromBackend } from "../utils/api";
+import { exportToExcel } from "../utils/exportutils";
 
 interface Column {
   key: string;
@@ -24,23 +24,23 @@ interface Column {
   render?: (value: any, item: any) => React.ReactNode;
 }
 
-interface MasterDataTableProps {
+interface MasterDataTableProps<T = any> {
   title: string;
   endpoint: string;
   columns: Column[];
   onAdd?: () => void;
-  onEdit?: (item: any) => void;
+  onEdit?: (item: T) => void;
   onDelete?: (id: string | number) => void;
 }
 
-export default function MasterDataTable({
+export default function MasterDataTable<T = any>({
   title,
   endpoint,
   columns,
   onAdd,
   onEdit,
   onDelete,
-}: MasterDataTableProps) {
+}: MasterDataTableProps<T>) {
   const [items, setItems] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [page, setPage] = useState(1);

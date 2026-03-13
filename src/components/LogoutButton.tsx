@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
 import { LogOut } from "lucide-react";
-import { handleLogout } from "@/app/auth/action"; 
+import type React from "react";
+import { handleLogout } from "@/app/auth/action";
 
 const LogoutButton: React.FC = () => (
   <button

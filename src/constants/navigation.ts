@@ -1,13 +1,13 @@
+import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  Settings,
   BookOpen,
+  Calendar,
   Church,
   Group,
+  LayoutDashboard,
+  Settings,
+  Users,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
 export type NavItem = {
   href: string;

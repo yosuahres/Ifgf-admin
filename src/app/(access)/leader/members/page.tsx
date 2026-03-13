@@ -1,7 +1,7 @@
 "use client";
+import { Search, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Search, UserPlus, UserMinus, Users } from "lucide-react";
 
 type IcareGroup = {
   id: string;

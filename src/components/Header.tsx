@@ -1,6 +1,6 @@
 "use client";
-import LogoutButton from "./LogoutButton";
 import { logout } from "@/lib/supabase/logout";
+import LogoutButton from "./LogoutButton";
 
 export default function Header() {
   const handleLogout = async () => {

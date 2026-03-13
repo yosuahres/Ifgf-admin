@@ -1,10 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import MasterDataTable from '@/components/MasterDataTable';
 import ModalForm from '@/components/ModalForm';
 import { createClient } from '@/lib/supabase/client';
-import { type Database } from '@/types/database.types';
-import { useEffect, useState } from 'react';
+import type { Database } from '@/types/database.types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -85,4 +85,4 @@ export default function UsersPage() {
       setIsSubmitting(false);
     }
   };
-  // ... rest of the component
+}
