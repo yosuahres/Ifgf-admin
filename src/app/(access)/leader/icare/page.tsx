@@ -1,7 +1,15 @@
-'use client';
+"use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Calendar, Users, ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import {
+  Plus,
+  Calendar,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  X,
+} from "lucide-react";
 
 type IcareGroup = {
   id: string;
@@ -35,7 +43,9 @@ export default function IcareMeetingsPage() {
 
   // New meeting form
   const [showForm, setShowForm] = useState(false);
-  const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
+  const [tanggal, setTanggal] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [topik, setTopik] = useState("");
   const [lokasi, setLokasi] = useState("");
   const [catatan, setCatatan] = useState("");
@@ -45,7 +55,9 @@ export default function IcareMeetingsPage() {
 
   // Expanded meeting detail
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [meetingAttendance, setMeetingAttendance] = useState<Record<string, string[]>>({});
+  const [meetingAttendance, setMeetingAttendance] = useState<
+    Record<string, string[]>
+  >({});
 
   const supabase = createClient();
 
@@ -62,8 +74,13 @@ export default function IcareMeetingsPage() {
   const loadData = async () => {
     setLoadingPage(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoadingPage(false); return; }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setLoadingPage(false);
+      return;
+    }
 
     // Step 1: Get jemaat.id from auth user.id
     const { data: jemaatSelf } = await supabase
@@ -72,7 +89,10 @@ export default function IcareMeetingsPage() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!jemaatSelf) { setLoadingPage(false); return; }
+    if (!jemaatSelf) {
+      setLoadingPage(false);
+      return;
+    }
 
     // Step 2: Find icare group where leader_id = jemaat.id
     const { data: groupData } = await supabase
@@ -81,7 +101,10 @@ export default function IcareMeetingsPage() {
       .eq("leader_id", jemaatSelf.id)
       .maybeSingle();
 
-    if (!groupData) { setLoadingPage(false); return; }
+    if (!groupData) {
+      setLoadingPage(false);
+      return;
+    }
 
     setGroup(groupData);
     setLokasi(groupData.lokasi_pertemuan ?? "");
@@ -96,13 +119,17 @@ export default function IcareMeetingsPage() {
     const membersData: Jemaat[] = (icareMembers ?? [])
       .map((row: any) => row.jemaat)
       .filter(Boolean)
-      .sort((a: Jemaat, b: Jemaat) => a.nama_lengkap.localeCompare(b.nama_lengkap));
+      .sort((a: Jemaat, b: Jemaat) =>
+        a.nama_lengkap.localeCompare(b.nama_lengkap),
+      );
 
     setMembers(membersData);
 
     // Init attendance map — all false
     const initMap: AttendanceMap = {};
-    membersData.forEach(m => { initMap[m.id] = false; });
+    membersData.forEach((m) => {
+      initMap[m.id] = false;
+    });
     setAttendance(initMap);
 
     // Step 4: Get past meetings
@@ -117,30 +144,41 @@ export default function IcareMeetingsPage() {
   };
 
   const toggleAttendance = (id: string) => {
-    setAttendance(prev => ({ ...prev, [id]: !prev[id] }));
+    setAttendance((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const selectAll = () => {
     const all: AttendanceMap = {};
-    members.forEach(m => { all[m.id] = true; });
+    members.forEach((m) => {
+      all[m.id] = true;
+    });
     setAttendance(all);
   };
 
   const clearAll = () => {
     const none: AttendanceMap = {};
-    members.forEach(m => { none[m.id] = false; });
+    members.forEach((m) => {
+      none[m.id] = false;
+    });
     setAttendance(none);
   };
 
   const handleSubmit = async () => {
     if (!group) return;
-    if (!tanggal) { setFormError("Tanggal wajib diisi."); return; }
+    if (!tanggal) {
+      setFormError("Tanggal wajib diisi.");
+      return;
+    }
     setFormError("");
     setSubmitting(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    const presentIds = Object.entries(attendance).filter(([, v]) => v).map(([k]) => k);
+    const presentIds = Object.entries(attendance)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
     const jumlah_hadir = presentIds.length;
 
     // Insert meeting
@@ -166,7 +204,7 @@ export default function IcareMeetingsPage() {
 
     // Insert attendance for ALL members — hadir true/false
     if (members.length > 0) {
-      const attendanceRows = members.map(m => ({
+      const attendanceRows = members.map((m) => ({
         meeting_id: meeting.id,
         jemaat_id: m.id,
         hadir: attendance[m.id] ?? false,
@@ -178,7 +216,10 @@ export default function IcareMeetingsPage() {
         .insert(attendanceRows as any);
 
       if (attendanceError) {
-        setFormError("Pertemuan tersimpan, tapi gagal simpan kehadiran: " + attendanceError.message);
+        setFormError(
+          "Pertemuan tersimpan, tapi gagal simpan kehadiran: " +
+            attendanceError.message,
+        );
         setSubmitting(false);
         return;
       }
@@ -207,7 +248,7 @@ export default function IcareMeetingsPage() {
       keterangan: r.keterangan,
     }));
 
-    setMeetingAttendance(prev => ({ ...prev, [meetingId]: entries as any }));
+    setMeetingAttendance((prev) => ({ ...prev, [meetingId]: entries as any }));
   };
 
   const toggleExpand = (id: string) => {
@@ -225,18 +266,21 @@ export default function IcareMeetingsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-
       {/* Page header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">iCare Group</p>
+          <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">
+            iCare Group
+          </p>
           <h1 className="text-2xl font-semibold text-gray-900">
             {group ? group.nama_icare : "Grup Tidak Ditemukan"}
           </h1>
           {group && (
             <p className="text-sm text-gray-500 mt-1">
               {group.hari_pertemuan && <span>{group.hari_pertemuan}</span>}
-              {group.hari_pertemuan && group.lokasi_pertemuan && <span> · </span>}
+              {group.hari_pertemuan && group.lokasi_pertemuan && (
+                <span> · </span>
+              )}
               {group.lokasi_pertemuan && <span>{group.lokasi_pertemuan}</span>}
             </p>
           )}
@@ -254,7 +298,8 @@ export default function IcareMeetingsPage() {
 
       {!group && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-sm text-yellow-800">
-          Anda belum ditugaskan sebagai leader di iCare group manapun. Hubungi admin.
+          Anda belum ditugaskan sebagai leader di iCare group manapun. Hubungi
+          admin.
         </div>
       )}
 
@@ -262,50 +307,63 @@ export default function IcareMeetingsPage() {
       {showForm && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-6 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-800">Catat Pertemuan Baru</h2>
-            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+            <h2 className="text-sm font-semibold text-gray-800">
+              Catat Pertemuan Baru
+            </h2>
+            <button
+              onClick={() => setShowForm(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
               <X size={16} />
             </button>
           </div>
 
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-gray-600">Tanggal *</label>
+              <label className="text-xs font-medium text-gray-600">
+                Tanggal *
+              </label>
               <input
                 type="date"
                 value={tanggal}
-                onChange={e => setTanggal(e.target.value)}
+                onChange={(e) => setTanggal(e.target.value)}
                 className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-gray-600">Lokasi</label>
+              <label className="text-xs font-medium text-gray-600">
+                Lokasi
+              </label>
               <input
                 type="text"
                 value={lokasi}
-                onChange={e => setLokasi(e.target.value)}
+                onChange={(e) => setLokasi(e.target.value)}
                 placeholder={group?.lokasi_pertemuan ?? "Lokasi pertemuan"}
                 className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600">Topik / Firman</label>
+              <label className="text-xs font-medium text-gray-600">
+                Topik / Firman
+              </label>
               <input
                 type="text"
                 value={topik}
-                onChange={e => setTopik(e.target.value)}
+                onChange={(e) => setTopik(e.target.value)}
                 placeholder="Topik atau judul firman"
                 className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600">Catatan</label>
+              <label className="text-xs font-medium text-gray-600">
+                Catatan
+              </label>
               <textarea
                 value={catatan}
-                onChange={e => setCatatan(e.target.value)}
+                onChange={(e) => setCatatan(e.target.value)}
                 rows={2}
                 placeholder="Catatan tambahan..."
                 className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -317,25 +375,38 @@ export default function IcareMeetingsPage() {
           <div className="px-6 pb-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-gray-600">Kehadiran</label>
+                <label className="text-xs font-medium text-gray-600">
+                  Kehadiran
+                </label>
                 <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                   {presentCount} / {members.length} hadir
                 </span>
               </div>
               <div className="flex gap-2">
-                <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">Semua Hadir</button>
+                <button
+                  onClick={selectAll}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  Semua Hadir
+                </button>
                 <span className="text-gray-300">|</span>
-                <button onClick={clearAll} className="text-xs text-gray-400 hover:underline">Reset</button>
+                <button
+                  onClick={clearAll}
+                  className="text-xs text-gray-400 hover:underline"
+                >
+                  Reset
+                </button>
               </div>
             </div>
 
             {members.length === 0 ? (
               <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-xs text-gray-400 text-center">
-                Belum ada anggota di grup ini. Tambah anggota di halaman Anggota.
+                Belum ada anggota di grup ini. Tambah anggota di halaman
+                Anggota.
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
-                {members.map(m => (
+                {members.map((m) => (
                   <button
                     key={m.id}
                     type="button"
@@ -346,10 +417,20 @@ export default function IcareMeetingsPage() {
                         : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                     }`}
                   >
-                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                      attendance[m.id] ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
-                    }`}>
-                      {attendance[m.id] && <Check size={10} className="text-white" strokeWidth={3} />}
+                    <div
+                      className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                        attendance[m.id]
+                          ? "bg-blue-600 border-blue-600"
+                          : "border-gray-300 bg-white"
+                      }`}
+                    >
+                      {attendance[m.id] && (
+                        <Check
+                          size={10}
+                          className="text-white"
+                          strokeWidth={3}
+                        />
+                      )}
                     </div>
                     <span className="truncate">{m.nama_lengkap}</span>
                   </button>
@@ -360,7 +441,8 @@ export default function IcareMeetingsPage() {
 
           {formError && (
             <div className="mx-6 mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 text-sm text-red-700">
-              <span>⚠</span><span>{formError}</span>
+              <span>⚠</span>
+              <span>{formError}</span>
             </div>
           )}
 
@@ -389,7 +471,9 @@ export default function IcareMeetingsPage() {
       {meetings.length === 0 && !showForm && group && (
         <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
           <Calendar size={32} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Belum ada pertemuan yang dicatat.</p>
+          <p className="text-sm text-gray-500">
+            Belum ada pertemuan yang dicatat.
+          </p>
           <button
             onClick={() => setShowForm(true)}
             className="mt-4 text-sm text-blue-600 hover:underline"
@@ -401,20 +485,25 @@ export default function IcareMeetingsPage() {
 
       {/* Meetings list */}
       <div className="flex flex-col gap-3">
-        {meetings.map(meeting => {
+        {meetings.map((meeting) => {
           const attendanceList = meetingAttendance[meeting.id] as any[];
-          const hadirList = attendanceList?.filter(a => a.hadir) ?? [];
-          const tidakHadirList = attendanceList?.filter(a => !a.hadir) ?? [];
+          const hadirList = attendanceList?.filter((a) => a.hadir) ?? [];
+          const tidakHadirList = attendanceList?.filter((a) => !a.hadir) ?? [];
 
           return (
-            <div key={meeting.id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div
+              key={meeting.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden"
+            >
               <button
                 onClick={() => toggleExpand(meeting.id)}
                 className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left"
               >
                 <div className="w-10 h-10 rounded-lg bg-blue-50 flex flex-col items-center justify-center shrink-0">
                   <span className="text-[0.6rem] text-blue-500 font-medium uppercase leading-none">
-                    {new Date(meeting.tanggal).toLocaleString("id-ID", { month: "short" })}
+                    {new Date(meeting.tanggal).toLocaleString("id-ID", {
+                      month: "short",
+                    })}
                   </span>
                   <span className="text-sm font-bold text-blue-700 leading-tight">
                     {new Date(meeting.tanggal).getDate()}
@@ -427,7 +516,10 @@ export default function IcareMeetingsPage() {
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     {new Date(meeting.tanggal).toLocaleDateString("id-ID", {
-                      weekday: "long", year: "numeric", month: "long", day: "numeric",
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
                     })}
                     {meeting.lokasi && ` · ${meeting.lokasi}`}
                   </p>
@@ -435,12 +527,15 @@ export default function IcareMeetingsPage() {
 
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Users size={13} className="text-gray-400" />
-                  <span className="text-sm font-semibold text-gray-700">{meeting.jumlah_hadir}</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {meeting.jumlah_hadir}
+                  </span>
                   <span className="text-xs text-gray-400 mr-2">hadir</span>
-                  {expandedId === meeting.id
-                    ? <ChevronUp size={14} className="text-gray-400" />
-                    : <ChevronDown size={14} className="text-gray-400" />
-                  }
+                  {expandedId === meeting.id ? (
+                    <ChevronUp size={14} className="text-gray-400" />
+                  ) : (
+                    <ChevronDown size={14} className="text-gray-400" />
+                  )}
                 </div>
               </button>
 
@@ -448,7 +543,9 @@ export default function IcareMeetingsPage() {
                 <div className="border-t border-gray-100 px-5 py-4 bg-gray-50 space-y-4">
                   {meeting.catatan && (
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-700">Catatan: </span>
+                      <span className="font-medium text-gray-700">
+                        Catatan:{" "}
+                      </span>
                       {meeting.catatan}
                     </p>
                   )}
@@ -468,7 +565,10 @@ export default function IcareMeetingsPage() {
                         {hadirList.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
                             {hadirList.map((a, i) => (
-                              <span key={i} className="text-xs bg-white border border-green-200 text-green-800 px-2.5 py-1 rounded-full">
+                              <span
+                                key={i}
+                                className="text-xs bg-white border border-green-200 text-green-800 px-2.5 py-1 rounded-full"
+                              >
                                 {a.nama}
                               </span>
                             ))}
@@ -489,7 +589,10 @@ export default function IcareMeetingsPage() {
                         {tidakHadirList.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
                             {tidakHadirList.map((a, i) => (
-                              <span key={i} className="text-xs bg-white border border-red-200 text-red-700 px-2.5 py-1 rounded-full">
+                              <span
+                                key={i}
+                                className="text-xs bg-white border border-red-200 text-red-700 px-2.5 py-1 rounded-full"
+                              >
                                 {a.nama}
                               </span>
                             ))}

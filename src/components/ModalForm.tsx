@@ -1,8 +1,8 @@
 //components/ModalForm.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { useState } from "react";
+import { Plus, X } from "lucide-react";
 
 interface ModalFormProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface ModalFormProps {
   fields: {
     name: string;
     label: string;
-    type: 'text' | 'email' | 'password' | 'select' | 'textarea';
+    type: "text" | "email" | "password" | "select" | "textarea";
     options?: { value: string; label: string }[];
     required?: boolean;
     placeholder?: string;
@@ -28,17 +28,17 @@ export default function ModalForm({
   fields,
   onSubmit,
   submitText = "Submit",
-  isLoading = false
+  isLoading = false,
 }: ModalFormProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
     const newErrors: Record<string, string> = {};
-    fields.forEach(field => {
+    fields.forEach((field) => {
       if (field.required && !formData[field.name]) {
         newErrors[field.name] = `${field.label} is required`;
       }
@@ -53,9 +53,9 @@ export default function ModalForm({
   };
 
   const handleInputChange = (name: string, value: any) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
@@ -80,13 +80,16 @@ export default function ModalForm({
           {fields.map((field) => (
             <div key={field.name} className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                {field.label} {field.required && <span className="text-red-500">*</span>}
+                {field.label}{" "}
+                {field.required && <span className="text-red-500">*</span>}
               </label>
-              
-              {field.type === 'select' ? (
+
+              {field.type === "select" ? (
                 <select
-                  value={formData[field.name] || ''}
-                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                  value={formData[field.name] || ""}
+                  onChange={(e) =>
+                    handleInputChange(field.name, e.target.value)
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required={field.required}
                 >
@@ -97,10 +100,12 @@ export default function ModalForm({
                     </option>
                   ))}
                 </select>
-              ) : field.type === 'textarea' ? (
+              ) : field.type === "textarea" ? (
                 <textarea
-                  value={formData[field.name] || ''}
-                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                  value={formData[field.name] || ""}
+                  onChange={(e) =>
+                    handleInputChange(field.name, e.target.value)
+                  }
                   placeholder={field.placeholder}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   rows={4}
@@ -109,14 +114,16 @@ export default function ModalForm({
               ) : (
                 <input
                   type={field.type}
-                  value={formData[field.name] || ''}
-                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                  value={formData[field.name] || ""}
+                  onChange={(e) =>
+                    handleInputChange(field.name, e.target.value)
+                  }
                   placeholder={field.placeholder}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required={field.required}
                 />
               )}
-              
+
               {errors[field.name] && (
                 <p className="text-red-500 text-sm">{errors[field.name]}</p>
               )}

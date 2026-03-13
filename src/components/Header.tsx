@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import LogoutButton from "./LogoutButton";
 import { logout } from "@/lib/supabase/logout";
 

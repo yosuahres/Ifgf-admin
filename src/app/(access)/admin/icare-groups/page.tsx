@@ -1,15 +1,17 @@
 // admin/icare-groups/page.tsx
 'use client';
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import MasterDataTable from '@/components/MasterDataTable';
 import ModalForm from '@/components/ModalForm';
+import { createClient } from '@/lib/supabase/client';
+import { Database } from '@/types/database.types';
+import { useEffect, useState } from 'react';
 
+type IcareRow = Database['public']['Tables']['icare_groups']['Row'];
 type LeaderOption = { value: string; label: string };
 
 export default function IcareGroupsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<any | null>(null);
+  const [editItem, setEditItem] = useState<IcareRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([]);
 
@@ -22,18 +24,18 @@ export default function IcareGroupsPage() {
         .select('id, nama_lengkap')
         .order('nama_lengkap');
       setLeaderOptions(
-        (data ?? []).map((j: any) => ({ value: j.id, label: j.nama_lengkap }))
+        (data ?? []).map((j) => ({ value: j.id, label: j.nama_lengkap }))
       );
     };
     loadLeaders();
-  }, []);
+  }, [supabase]);
 
   const columns = [
     { key: 'nama_icare', label: 'Nama iCare' },
     {
       key: 'leader_id',
       label: 'Leader',
-      render: (_: any, item: any) => item.jemaat?.nama_lengkap ?? '-',
+      render: (_: unknown, item: IcareRow) => item.jemaat?.nama_lengkap ?? '-',
     },
     { key: 'hari_pertemuan', label: 'Hari Pertemuan' },
     {
@@ -108,7 +110,7 @@ export default function IcareGroupsPage() {
     setIsModalOpen(true);
   };
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: IcareRow) => {
     setEditItem(item);
     setIsModalOpen(true);
   };
@@ -119,14 +121,14 @@ export default function IcareGroupsPage() {
       .from('icare_groups')
       .delete()
       .eq('id', id as string);
-    if (error) alert('Gagal menghapus: ' + error.message);
+    if (error) alert(`Gagal menghapus: ${error.message}`);
   };
 
-  const handleSubmit = async (data: Record<string, any>) => {
+  const handleSubmit = async (data: Record<string, string | null>) => {
     setIsSubmitting(true);
 
     const payload = {
-      nama_icare:       data.nama_icare,
+      nama_icare:       data.nama_icare as string,
       leader_id:        data.leader_id        || null,
       hari_pertemuan:   data.hari_pertemuan   || null,
       jam_pertemuan:    data.jam_pertemuan    || null,
@@ -135,11 +137,11 @@ export default function IcareGroupsPage() {
     };
 
     const { error } = editItem
-      ? await supabase.from('icare_groups').update(payload as any).eq('id', editItem.id)
-      : await supabase.from('icare_groups').insert(payload as any);
+      ? await supabase.from('icare_groups').update(payload).eq('id', editItem.id)
+      : await supabase.from('icare_groups').insert([payload]);
 
     if (error) {
-      alert('Gagal menyimpan: ' + error.message);
+      alert(`Gagal menyimpan: ${error.message}`);
     } else {
       setIsModalOpen(false);
       setEditItem(null);

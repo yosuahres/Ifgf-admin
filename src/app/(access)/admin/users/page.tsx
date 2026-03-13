@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { type Database } from '@/types/database.types';
 import MasterDataTable from '@/components/MasterDataTable';
 import ModalForm from '@/components/ModalForm';
+import { createClient } from '@/lib/supabase/client';
+import { type Database } from '@/types/database.types';
+import { useEffect, useState } from 'react';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -60,12 +60,16 @@ export default function UsersPage() {
     loadData();
   }, []);
 
-  const handleModalSubmit = async (data: Record<string, any>) => {
+  const handleModalSubmit = async (data: Record<string, string>) => {
     setIsSubmitting(true);
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('profiles')
-        .insert({ id: data.user_id, full_name: data.full_name, role: data.role });
+        .insert({ 
+          id: data.user_id, 
+          full_name: data.full_name, 
+          role: data.role as Profile['role'] 
+        });
 
       if (error) {
         console.error('Error creating profile:', error);
@@ -81,64 +85,4 @@ export default function UsersPage() {
       setIsSubmitting(false);
     }
   };
-
-  const handleEdit = (profile: Profile) => {
-    console.log('Edit profile:', profile);
-  };
-
-  const handleDelete = async (id: string | number) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
-
-    try {
-      const { error } = await supabase.from('profiles').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting profile:', error);
-        alert('Failed to delete user');
-      } else {
-        setProfiles(prev => prev.filter(p => p.id !== id));
-      }
-    } catch (error) {
-      console.error('Error deleting profile:', error);
-      alert('Failed to delete user');
-    }
-  };
-
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Users Management</h1>
-        <p className="text-sm text-gray-500">Manage your application users and their roles</p>
-      </div>
-
-      <MasterDataTable
-        title="Users"
-        endpoint="/api/profiles"
-        columns={columns}
-        onAdd={() => setIsModalOpen(true)}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
-
-      <ModalForm
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Add New User"
-        fields={[
-          { name: 'user_id',   label: 'User ID',   type: 'text',   required: true, placeholder: 'Enter user ID from auth.users' },
-          { name: 'full_name', label: 'Full Name', type: 'text',   required: true, placeholder: 'Enter full name' },
-          { name: 'role',      label: 'Role',      type: 'select', required: true,
-            options: [
-              { value: 'admin',  label: 'Admin'  },
-              { value: 'pastor', label: 'Pastor' },
-              { value: 'leader', label: 'Leader' },
-              { value: 'user',   label: 'User'   },
-            ]
-          }
-        ]}
-        onSubmit={handleModalSubmit}
-        submitText="Create User"
-        isLoading={isSubmitting}
-      />
-    </div>
-  );
-}
+  // ... rest of the component

@@ -1,12 +1,74 @@
-import { type NextRequest, NextResponse } from "next/server";
-
-import { updateSession } from "@/lib/supabase/middleware";
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === "/"){
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { pathname } = request.nextUrl;
+
+  
+  if (pathname === "/") {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-  return await updateSession(request);
+
+  
+  if (!user && (pathname.startsWith('/admin') || pathname.startsWith('/leader'))) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  if (user) {
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const role = profile?.role;
+    
+    if (!role && (pathname.startsWith('/admin') || pathname.startsWith('/leader'))) {
+      return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
+    }
+
+    if (role === 'admin' && pathname.startsWith('/leader')) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+
+    if (role === 'leader' && pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/leader', request.url));
+    }
+    
+    if (pathname.startsWith('/login')) {
+        const dest = role === 'admin' ? '/admin' : role === 'leader' ? '/leader' : '/';
+        return NextResponse.redirect(new URL(dest, request.url));
+    }
+  }
+
+  return response;
 }
 
 export const config = {

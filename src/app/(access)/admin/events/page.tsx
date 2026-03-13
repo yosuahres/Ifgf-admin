@@ -1,9 +1,9 @@
 //admin/events/page.tsx
-'use client';
-import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import MasterDataTable from '@/components/MasterDataTable';
-import ModalForm from '@/components/ModalForm';
+"use client";
+import { useState } from "react";
+import MasterDataTable from "@/components/MasterDataTable";
+import ModalForm from "@/components/ModalForm";
+import { createClient } from "@/lib/supabase/client";
 
 export default function EventsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -13,98 +13,107 @@ export default function EventsPage() {
   const supabase = createClient();
 
   const columns = [
-    { key: 'event_name', label: 'Nama Event' },
+    { key: "event_name", label: "Nama Event" },
     {
-      key: 'event_type',
-      label: 'Tipe',
-      render: (value: string) => value ? (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-          {value}
-        </span>
-      ) : '-',
+      key: "event_type",
+      label: "Tipe",
+      render: (value: string) =>
+        value ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+            {value}
+          </span>
+        ) : (
+          "-"
+        ),
     },
     {
-      key: 'event_date',
-      label: 'Tanggal',
-      render: (value: string) => value
-        ? new Date(value).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-        : '-',
+      key: "event_date",
+      label: "Tanggal",
+      render: (value: string) =>
+        value
+          ? new Date(value).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })
+          : "-",
     },
     {
-      key: 'start_time',
-      label: 'Waktu',
+      key: "start_time",
+      label: "Waktu",
       render: (value: string, item: any) => {
-        if (!value) return '-';
+        if (!value) return "-";
         const fmt = (t: string) => t.slice(0, 5);
-        return item.end_time ? `${fmt(value)} – ${fmt(item.end_time)}` : fmt(value);
+        return item.end_time
+          ? `${fmt(value)} – ${fmt(item.end_time)}`
+          : fmt(value);
       },
     },
-    { key: 'location', label: 'Lokasi' },
+    { key: "location", label: "Lokasi" },
     {
-      key: 'created_at',
-      label: 'Dibuat',
-      render: (value: string) => value
-        ? new Date(value).toLocaleDateString('id-ID')
-        : '-',
+      key: "created_at",
+      label: "Dibuat",
+      render: (value: string) =>
+        value ? new Date(value).toLocaleDateString("id-ID") : "-",
     },
   ];
 
   const fields = [
     {
-      name: 'event_name',
-      label: 'Nama Event',
-      type: 'text' as const,
+      name: "event_name",
+      label: "Nama Event",
+      type: "text" as const,
       required: true,
-      placeholder: 'e.g. Ibadah Natal 2025',
+      placeholder: "e.g. Ibadah Natal 2025",
     },
     {
-      name: 'event_type',
-      label: 'Tipe Event',
-      type: 'select' as const,
+      name: "event_type",
+      label: "Tipe Event",
+      type: "select" as const,
       required: false,
       options: [
-        'Ibadah Umum',
-        'Ibadah Pemuda',
-        'Ibadah Anak',
-        'Retreat',
-        'Seminar',
-        'Konser',
-        'Baptisan',
-        'Pernikahan',
-        'Lainnya',
-      ].map(d => ({ value: d, label: d })),
+        "Ibadah Umum",
+        "Ibadah Pemuda",
+        "Ibadah Anak",
+        "Retreat",
+        "Seminar",
+        "Konser",
+        "Baptisan",
+        "Pernikahan",
+        "Lainnya",
+      ].map((d) => ({ value: d, label: d })),
     },
     {
-      name: 'event_date',
-      label: 'Tanggal',
-      type: 'date' as const,
+      name: "event_date",
+      label: "Tanggal",
+      type: "date" as const,
       required: true,
     },
     {
-      name: 'start_time',
-      label: 'Jam Mulai',
-      type: 'time' as const,
+      name: "start_time",
+      label: "Jam Mulai",
+      type: "time" as const,
       required: false,
     },
     {
-      name: 'end_time',
-      label: 'Jam Selesai',
-      type: 'time' as const,
+      name: "end_time",
+      label: "Jam Selesai",
+      type: "time" as const,
       required: false,
     },
     {
-      name: 'location',
-      label: 'Lokasi',
-      type: 'text' as const,
+      name: "location",
+      label: "Lokasi",
+      type: "text" as const,
       required: false,
-      placeholder: 'Nama tempat / alamat',
+      placeholder: "Nama tempat / alamat",
     },
     {
-      name: 'description',
-      label: 'Deskripsi',
-      type: 'textarea' as const,
+      name: "description",
+      label: "Deskripsi",
+      type: "textarea" as const,
       required: false,
-      placeholder: 'Keterangan tambahan tentang event...',
+      placeholder: "Keterangan tambahan tentang event...",
     },
   ];
 
@@ -119,30 +128,36 @@ export default function EventsPage() {
   };
 
   const handleDelete = async (id: string | number) => {
-    if (!confirm('Yakin ingin menghapus event ini?')) return;
-    const { error } = await supabase.from('events').delete().eq('id', id as string);
-    if (error) alert('Gagal menghapus: ' + error.message);
+    if (!confirm("Yakin ingin menghapus event ini?")) return;
+    const { error } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", id as string);
+    if (error) alert(`Gagal menghapus: ${error.message}`);
   };
 
   const handleSubmit = async (data: Record<string, any>) => {
     setIsSubmitting(true);
 
     const payload = {
-      event_name:  data.event_name,
-      event_type:  data.event_type  || null,
-      event_date:  data.event_date,
-      start_time:  data.start_time  || null,
-      end_time:    data.end_time    || null,
-      location:    data.location    || null,
+      event_name: data.event_name,
+      event_type: data.event_type || null,
+      event_date: data.event_date,
+      start_time: data.start_time || null,
+      end_time: data.end_time || null,
+      location: data.location || null,
       description: data.description || null,
     };
 
     const { error } = editItem
-      ? await supabase.from('events').update(payload as any).eq('id', editItem.id)
-      : await supabase.from('events').insert(payload as any);
+      ? await supabase
+          .from("events")
+          .update(payload as any)
+          .eq("id", editItem.id)
+      : await supabase.from("events").insert(payload as any);
 
     if (error) {
-      alert('Gagal menyimpan: ' + error.message);
+      alert(`Gagal menyimpan: ${error.message}`);
     } else {
       setIsModalOpen(false);
       setEditItem(null);
@@ -155,7 +170,9 @@ export default function EventsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 mb-1">Events</h1>
-        <p className="text-sm text-gray-500">Kelola jadwal dan kegiatan gereja</p>
+        <p className="text-sm text-gray-500">
+          Kelola jadwal dan kegiatan gereja
+        </p>
       </div>
 
       <MasterDataTable
@@ -169,12 +186,15 @@ export default function EventsPage() {
 
       <ModalForm
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditItem(null); }}
-        title={editItem ? 'Edit Event' : 'Tambah Event'}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditItem(null);
+        }}
+        title={editItem ? "Edit Event" : "Tambah Event"}
         fields={fields}
         onSubmit={handleSubmit}
         initialData={editItem}
-        submitText={editItem ? 'Simpan Perubahan' : 'Tambah Event'}
+        submitText={editItem ? "Simpan Perubahan" : "Tambah Event"}
         isLoading={isSubmitting}
       />
     </div>

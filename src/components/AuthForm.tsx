@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -7,10 +7,10 @@ interface AuthFormProps {
 }
 
 const roleRedirect: Record<string, string> = {
-  admin:  "/admin",
+  admin: "/admin",
   leader: "/leader",
   pastor: "/",
-  user:   "/",
+  user: "/",
 };
 
 export default function AuthForm({ type }: AuthFormProps) {
@@ -25,7 +25,10 @@ export default function AuthForm({ type }: AuthFormProps) {
     setLoading(true);
     setError("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       setError(error.message);
@@ -51,14 +54,15 @@ export default function AuthForm({ type }: AuthFormProps) {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-
       {/* Email */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-gray-700">Email address</label>
+        <label className="text-sm font-medium text-gray-700">
+          Email address
+        </label>
         <input
           type="email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
           placeholder="you@example.com"
@@ -70,14 +74,17 @@ export default function AuthForm({ type }: AuthFormProps) {
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-gray-700">Password</label>
-          <a href="/forgot-password" className="text-xs text-blue-600 hover:text-blue-700 transition-colors">
+          <a
+            href="/forgot-password"
+            className="text-xs text-blue-600 hover:text-blue-700 transition-colors"
+          >
             Forgot password?
           </a>
         </div>
         <input
           type="password"
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="current-password"
           placeholder="••••••••"
@@ -104,7 +111,6 @@ export default function AuthForm({ type }: AuthFormProps) {
         )}
         {loading ? "Signing in…" : "Sign in"}
       </button>
-
     </form>
   );
 }

@@ -1,13 +1,12 @@
+"use client";
+
 import React from "react";
 import { LogOut } from "lucide-react";
+import { handleLogout } from "@/app/auth/action"; 
 
-interface LogoutButtonProps {
-  onLogout: () => void;
-}
-
-const LogoutButton: React.FC<LogoutButtonProps> = ({ onLogout }) => (
+const LogoutButton: React.FC = () => (
   <button
-    onClick={onLogout}
+    onClick={async () => await handleLogout()}
     className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
   >
     <LogOut size={14} />

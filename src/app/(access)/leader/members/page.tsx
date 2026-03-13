@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Search, UserPlus, UserMinus, Users } from "lucide-react";
@@ -46,8 +46,13 @@ export default function IcareMembersPage() {
   const loadData = async () => {
     setLoadingPage(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoadingPage(false); return; }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setLoadingPage(false);
+      return;
+    }
 
     // Get jemaat.id from auth user
     const { data: jemaatSelf } = await supabase
@@ -56,7 +61,10 @@ export default function IcareMembersPage() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!jemaatSelf) { setLoadingPage(false); return; }
+    if (!jemaatSelf) {
+      setLoadingPage(false);
+      return;
+    }
 
     // Get icare group led by this leader
     const { data: groupData } = await supabase
@@ -65,7 +73,10 @@ export default function IcareMembersPage() {
       .eq("leader_id", jemaatSelf.id)
       .maybeSingle();
 
-    if (!groupData) { setLoadingPage(false); return; }
+    if (!groupData) {
+      setLoadingPage(false);
+      return;
+    }
     setGroup(groupData);
 
     await loadMembers(groupData.id);
@@ -130,25 +141,27 @@ export default function IcareMembersPage() {
     setLoadingAction(null);
   };
 
-  const memberIds = new Set(members.map(m => m.id));
+  const memberIds = new Set(members.map((m) => m.id));
 
-  const filteredMembers = members.filter(m =>
-    m.nama_lengkap.toLowerCase().includes(search.toLowerCase())
+  const filteredMembers = members.filter((m) =>
+    m.nama_lengkap.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const availableJemaat = allJemaat.filter(j =>
-    !memberIds.has(j.id) &&
-    j.nama_lengkap.toLowerCase().includes(addSearch.toLowerCase())
+  const availableJemaat = allJemaat.filter(
+    (j) =>
+      !memberIds.has(j.id) &&
+      j.nama_lengkap.toLowerCase().includes(addSearch.toLowerCase()),
   );
 
   if (!authorized || loadingPage) return null;
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">iCare Group</p>
+        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">
+          iCare Group
+        </p>
         <h1 className="text-2xl font-semibold text-gray-900">
           {group ? group.nama_icare : "Grup Tidak Ditemukan"}
         </h1>
@@ -161,7 +174,8 @@ export default function IcareMembersPage() {
 
       {!group && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-sm text-yellow-800">
-          Anda belum ditugaskan sebagai leader di iCare group manapun. Hubungi admin.
+          Anda belum ditugaskan sebagai leader di iCare group manapun. Hubungi
+          admin.
         </div>
       )}
 
@@ -198,11 +212,14 @@ export default function IcareMembersPage() {
             <div>
               {/* Search */}
               <div className="relative mb-4">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
                 <input
                   type="text"
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari anggota..."
                   className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -212,12 +229,14 @@ export default function IcareMembersPage() {
                 <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
                   <Users size={32} className="text-gray-300 mx-auto mb-3" />
                   <p className="text-sm text-gray-500">
-                    {search ? "Anggota tidak ditemukan." : "Belum ada anggota. Tambah dari tab Tambah Anggota."}
+                    {search
+                      ? "Anggota tidak ditemukan."
+                      : "Belum ada anggota. Tambah dari tab Tambah Anggota."}
                   </p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {filteredMembers.map(m => (
+                  {filteredMembers.map((m) => (
                     <div
                       key={m.member_id}
                       className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-4"
@@ -231,14 +250,23 @@ export default function IcareMembersPage() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{m.nama_lengkap}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {m.nama_lengkap}
+                        </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {m.gender === "L" ? "Laki-laki" : m.gender === "P" ? "Perempuan" : "—"}
+                          {m.gender === "L"
+                            ? "Laki-laki"
+                            : m.gender === "P"
+                              ? "Perempuan"
+                              : "—"}
                           {m.phone_number && ` · ${m.phone_number}`}
                           <span className="ml-2 text-gray-300">·</span>
                           <span className="ml-2">
-                            Bergabung {new Date(m.join_date).toLocaleDateString("id-ID", {
-                              day: "numeric", month: "short", year: "numeric"
+                            Bergabung{" "}
+                            {new Date(m.join_date).toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
                             })}
                           </span>
                         </p>
@@ -269,11 +297,14 @@ export default function IcareMembersPage() {
             <div>
               {/* Search */}
               <div className="relative mb-4">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
                 <input
                   type="text"
                   value={addSearch}
-                  onChange={e => setAddSearch(e.target.value)}
+                  onChange={(e) => setAddSearch(e.target.value)}
                   placeholder="Cari dari data jemaat..."
                   className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -283,12 +314,14 @@ export default function IcareMembersPage() {
                 <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
                   <UserPlus size={32} className="text-gray-300 mx-auto mb-3" />
                   <p className="text-sm text-gray-500">
-                    {addSearch ? "Jemaat tidak ditemukan." : "Semua jemaat sudah menjadi anggota grup ini."}
+                    {addSearch
+                      ? "Jemaat tidak ditemukan."
+                      : "Semua jemaat sudah menjadi anggota grup ini."}
                   </p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {availableJemaat.map(j => (
+                  {availableJemaat.map((j) => (
                     <div
                       key={j.id}
                       className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-4"
@@ -302,9 +335,15 @@ export default function IcareMembersPage() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{j.nama_lengkap}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {j.nama_lengkap}
+                        </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {j.gender === "L" ? "Laki-laki" : j.gender === "P" ? "Perempuan" : "—"}
+                          {j.gender === "L"
+                            ? "Laki-laki"
+                            : j.gender === "P"
+                              ? "Perempuan"
+                              : "—"}
                           {j.phone_number && ` · ${j.phone_number}`}
                         </p>
                       </div>
