@@ -28,8 +28,11 @@ export default function Sidebar() {
         .maybeSingle();
 
       if (profile) {
-        setUser({ full_name: profile.full_name, role: profile.role });
-        setNavItems(navByRole[profile.role] ?? []);
+        setUser({ 
+          full_name: profile.full_name, 
+          role: profile.role ?? "user"  
+        });
+        setNavItems(navByRole[profile.role ?? "user"] ?? []);
       }
     };
     fetchUser();
