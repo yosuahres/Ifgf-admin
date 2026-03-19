@@ -1,4 +1,4 @@
-//components/MasterDataTable.tsx
+// components/MasterDataTable.tsx
 "use client";
 
 import {
@@ -13,10 +13,13 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchFromBackend } from "../utils/api";
 import { exportToExcel } from "../utils/exportutils";
+import type { ColumnSchema } from "../utils/exportutils";
+import ImportButton from "./ImportButton";
 
 interface Column {
   key: string;
@@ -28,18 +31,27 @@ interface MasterDataTableProps<T = any> {
   title: string;
   endpoint: string;
   columns: Column[];
+  /** Schema used for both export (embedded metadata) and import (column mapping) */
+  exportSchema?: ColumnSchema[];
   onAdd?: () => void;
   onEdit?: (item: T) => void;
   onDelete?: (id: string | number) => void;
+  /** Called after a successful import so the page can refresh or react */
+  onImport?: (rows: Record<string, any>[]) => Promise<void>;
+  /** Fires whenever the table's loaded items change — useful to access current rows */
+  onItemsChange?: (items: T[]) => void;
 }
 
 export default function MasterDataTable<T = any>({
   title,
   endpoint,
   columns,
+  exportSchema,
   onAdd,
   onEdit,
   onDelete,
+  onImport,
+  onItemsChange,
 }: MasterDataTableProps<T>) {
   const [items, setItems] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
@@ -49,6 +61,8 @@ export default function MasterDataTable<T = any>({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Track import completion to trigger table refresh
+  const [importKey, setImportKey] = useState(0);
 
   const toolbarScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -58,8 +72,7 @@ export default function MasterDataTable<T = any>({
   const scrollToolbar = (direction: "left" | "right") => {
     if (toolbarScrollRef.current) {
       const { scrollLeft } = toolbarScrollRef.current;
-      const scrollTo =
-        direction === "left" ? scrollLeft - 150 : scrollLeft + 150;
+      const scrollTo = direction === "left" ? scrollLeft - 150 : scrollLeft + 150;
       toolbarScrollRef.current.scrollTo({ left: scrollTo, behavior: "smooth" });
     }
   };
@@ -84,24 +97,29 @@ export default function MasterDataTable<T = any>({
       const url = `${endpoint}${separator}${params.toString()}`;
 
       const res = await fetchFromBackend(url);
-      const dataArray = Array.isArray(res) ? res : res?.data || [];
-      const dataTotal = Array.isArray(res)
-        ? res.length
-        : res?.total || dataArray.length;
+      const dataArray = (Array.isArray(res) ? res : res?.data || []) as T[];
+      const dataTotal = Array.isArray(res) ? res.length : res?.total || dataArray.length;
 
       setItems(dataArray);
       setTotal(dataTotal);
+      onItemsChange?.(dataArray);
     } catch (e) {
       console.error("Failed to load data:", e);
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [endpoint, page, limit, debouncedSearch]);
+  }, [endpoint, page, limit, debouncedSearch, importKey]); // importKey forces reload after import
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Wrap onImport to trigger table reload after success
+  const handleImport = async (rows: Record<string, any>[]) => {
+    await onImport?.(rows);
+    setImportKey((k) => k + 1); // triggers loadData via useCallback dep
+  };
 
   return (
     <div className="flex flex-col w-full border border-gray-300 bg-white rounded-md overflow-hidden shadow-sm">
@@ -119,13 +137,28 @@ export default function MasterDataTable<T = any>({
           className="flex items-center overflow-x-auto scrollbar-hide h-14 px-8 lg:px-3 gap-6"
         >
           <div className="flex items-center gap-4 shrink-0">
+            {/* Export — embeds schema if provided */}
             <button
-              onClick={() => exportToExcel(items, title)}
+              onClick={() => exportToExcel(items, title, exportSchema)}
               className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 font-medium whitespace-nowrap"
             >
               <FileSpreadsheet size={18} /> <span>Export</span>
             </button>
+
             <div className="w-px h-4 bg-gray-300" />
+
+            {/* Import — only shown if schema + handler provided */}
+            {exportSchema && onImport && (
+              <>
+                <ImportButton
+                  schema={exportSchema}
+                  onImport={handleImport}
+                  label="Import"
+                />
+                <div className="w-px h-4 bg-gray-300" />
+              </>
+            )}
+
             <button
               onClick={onAdd}
               className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 font-medium whitespace-nowrap"
@@ -170,6 +203,7 @@ export default function MasterDataTable<T = any>({
         </button>
       </div>
 
+      {/* TABLE */}
       <div className="relative">
         <div
           ref={tableScrollRef}
@@ -179,10 +213,7 @@ export default function MasterDataTable<T = any>({
             <thead>
               <tr className="bg-gray-50">
                 <th className="sticky left-0 z-30 w-12 border-b border-r border-gray-300 bg-gray-50 p-2 text-center">
-                  <input
-                    type="checkbox"
-                    className="rounded-sm accent-blue-600"
-                  />
+                  <input type="checkbox" className="rounded-sm accent-blue-600" />
                 </th>
                 {columns.map((col) => (
                   <th
@@ -202,10 +233,7 @@ export default function MasterDataTable<T = any>({
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td
-                    colSpan={columns.length + 1}
-                    className="py-20 text-center"
-                  >
+                  <td colSpan={columns.length + 1} className="py-20 text-center">
                     <Loader2 className="animate-spin mx-auto text-blue-500" />
                   </td>
                 </tr>
@@ -222,13 +250,15 @@ export default function MasterDataTable<T = any>({
                 items.map((item) => (
                   <tr
                     key={item.id}
-                    onClick={() =>
-                      setSelected(selected?.id === item.id ? null : item)
-                    }
-                    className={`cursor-pointer ${selected?.id === item.id ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                    onClick={() => setSelected(selected?.id === item.id ? null : item)}
+                    className={`cursor-pointer ${
+                      selected?.id === item.id ? "bg-blue-50" : "hover:bg-gray-50"
+                    }`}
                   >
                     <td
-                      className={`sticky left-0 z-10 border-r border-gray-200 p-2 text-center ${selected?.id === item.id ? "bg-blue-50" : "bg-white"}`}
+                      className={`sticky left-0 z-10 border-r border-gray-200 p-2 text-center ${
+                        selected?.id === item.id ? "bg-blue-50" : "bg-white"
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -242,9 +272,7 @@ export default function MasterDataTable<T = any>({
                         key={col.key}
                         className="border-r border-gray-200 px-4 py-3 text-sm text-gray-700 whitespace-nowrap truncate"
                       >
-                        {col.render
-                          ? col.render(item[col.key], item)
-                          : item[col.key] || "-"}
+                        {col.render ? col.render(item[col.key], item) : item[col.key] || "-"}
                       </td>
                     ))}
                   </tr>
@@ -255,6 +283,7 @@ export default function MasterDataTable<T = any>({
         </div>
       </div>
 
+      {/* PAGINATION */}
       <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 gap-4 border-t border-gray-300 bg-white">
         <div className="flex items-center gap-4">
           <div className="flex border rounded border-gray-300 overflow-hidden text-gray-600">
@@ -272,9 +301,7 @@ export default function MasterDataTable<T = any>({
             >
               <ChevronLeft size={18} />
             </button>
-            <div className="px-4 py-1.5 text-sm font-bold bg-blue-600 text-white">
-              {page}
-            </div>
+            <div className="px-4 py-1.5 text-sm font-bold bg-blue-600 text-white">{page}</div>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}

@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { type NavItem, navByRole } from "@/constants/navigation";
@@ -16,15 +16,14 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
   const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<{ full_name: string; role: string } | null>(null);
   const [navItems, setNavItems] = useState<NavItem[]>([]);
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
   const supabase = createClient();
 
-  // Auto-collapse on mobile
   useEffect(() => {
     if (isMobile) setCollapsed(false);
-  }, [isMobile]);
+  }, [isMobile]); 
 
-  // Close mobile drawer on route change
   useEffect(() => {
     onMobileClose?.();
   }, [pathname]);
@@ -45,6 +44,21 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
     };
     fetchUser();
   }, []);
+
+  // Auto-open dropdown if current path matches a child
+  useEffect(() => {
+    const autoOpen: Record<string, boolean> = {};
+    navItems.forEach((item) => {
+      if (item.children?.some((child) => child.href === pathname)) {
+        autoOpen[item.label] = true;
+      }
+    });
+    setOpenDropdowns((prev) => ({ ...prev, ...autoOpen }));
+  }, [navItems, pathname]);
+
+  const toggleDropdown = (label: string) => {
+    setOpenDropdowns((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
 
   const sidebarContent = (
     <aside
@@ -98,7 +112,62 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
 
       {/* Nav */}
       <nav className="flex flex-col gap-0.5 p-2 flex-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map((item) => {
+          const { label, icon: Icon, href, children } = item;
+
+          // --- Item WITH children (dropdown) ---
+          if (children && children.length > 0) {
+            const isOpen = openDropdowns[label] ?? false;
+            const anyChildActive = children.some((c) => c.href === pathname);
+
+            return (
+              <div key={label}>
+                <button
+                  onClick={() => {
+                    if (collapsed && !isMobile) {
+                      setCollapsed(false);
+                    } else {
+                      toggleDropdown(label);
+                    }
+
+                  }}
+                  title={collapsed && !isMobile ? label : undefined}
+                  className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${collapsed && !isMobile ? "justify-center" : ""}
+                    ${anyChildActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                >
+                  <Icon size={17} className="shrink-0" />
+                  {(!collapsed || isMobile) && (
+                    <>
+                      <span className="whitespace-nowrap flex-1 text-left">{label}</span>
+                      {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    </>
+                  )}
+                </button>
+
+                {(!collapsed || isMobile) && isOpen && (
+                  <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-gray-100 pl-2">
+                    {children.map((child) => {
+                      const childActive = pathname === child.href;
+                      const ChildIcon = child.icon;
+                      return (
+                        <a
+                          key={child.href}
+                          href={child.href}
+                          className={`flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors
+                            ${childActive ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}
+                        >
+                          <ChildIcon size={15} className="shrink-0" />
+                          <span className="whitespace-nowrap">{child.label}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const active = pathname === href;
           return (
             <a
@@ -121,14 +190,9 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
   if (isMobile) {
     return (
       <>
-        {/* Overlay */}
         {mobileOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-black/40"
-            onClick={onMobileClose}
-          />
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={onMobileClose} />
         )}
-        {/* Drawer */}
         <div
           className={`fixed inset-y-0 left-0 z-50 transition-transform duration-300 ${
             mobileOpen ? "translate-x-0" : "-translate-x-full"

@@ -8,9 +8,12 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-1 flex-col justify-between p-12 bg-blue-600">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-            <span className="text-white text-xs font-bold">IF</span>
+            <img 
+              src="assets/ifgf-logo2.png" 
+              alt="ifgf-logo" 
+            />
           </div>
-          <span className="text-white font-semibold text-sm">IFGF Batam</span>
+          <span className="text-white font-semibold text-sm">Batam</span>
         </div>
         <div>
           <h2 className="text-4xl font-bold text-white leading-snug mb-3">

@@ -10,7 +10,7 @@ const roleRedirect: Record<string, string> = {
   admin: "/admin",
   leader: "/leader",
   pastor: "/",
-  user: "/",
+  user: "/user",
 };
 
 export default function AuthForm({ type }: AuthFormProps) {

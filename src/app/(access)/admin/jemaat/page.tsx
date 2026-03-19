@@ -1,9 +1,12 @@
 // admin/jemaat/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MasterDataTable from "@/components/MasterDataTable";
 import ModalForm from "@/components/ModalForm";
+import ImportButton from "@/components/ImportButton";
+import { exportToExcel, exportTemplate } from "@/utils/exportutils";
+import type { ColumnSchema } from "@/utils/exportutils";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/types/database.types";
 
@@ -11,14 +14,31 @@ type Jemaat = Database["public"]["Tables"]["jemaat"]["Row"];
 type StatusJemaat = Database["public"]["Enums"]["status_jemaat_type"];
 type ProfileOption = { value: string; label: string };
 
+// ─── Shared schema: drives both export headers and import parsing ──────────────
+const JEMAAT_SCHEMA: ColumnSchema[] = [
+  { key: "nama_lengkap",       label: "Nama Lengkap",       type: "string",  required: true },
+  { key: "email",              label: "Email",              type: "string" },
+  { key: "phone_number",       label: "No. Telepon",        type: "string" },
+  { key: "gender",             label: "Gender",             type: "string" },
+  { key: "dob",                label: "Tanggal Lahir",      type: "date",    required: true },
+  { key: "alamat",             label: "Alamat",             type: "string" },
+  { key: "status_jemaat",      label: "Status Jemaat",      type: "string" },
+  { key: "marital_status",     label: "Status Pernikahan",  type: "string" },
+  { key: "is_baptized",        label: "Sudah Baptis",       type: "boolean" },
+  { key: "tanggal_baptis",     label: "Tanggal Baptis",     type: "date" },
+  { key: "discipleship_stage", label: "Tahap Pemuridan",    type: "string" },
+  { key: "notes",              label: "Catatan",            type: "string" },
+];
+
 export default function JemaatPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Jemaat | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileOptions, setProfileOptions] = useState<ProfileOption[]>([]);
-  const [assignedUserIds, setAssignedUserIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [assignedUserIds, setAssignedUserIds] = useState<Set<string>>(new Set());
+
+  // Ref to expose current table items for export (injected via onItemsChange)
+  const tableItemsRef = useRef<any[]>([]);
 
   const supabase = createClient();
 
@@ -27,13 +47,11 @@ export default function JemaatPage() {
   }, []);
 
   const loadProfileOptions = async () => {
-    // Get all profiles
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name, role")
       .order("full_name");
 
-    // Get all user_ids already assigned to jemaat
     const { data: jemaatList } = await supabase
       .from("jemaat")
       .select("user_id")
@@ -52,15 +70,14 @@ export default function JemaatPage() {
     );
   };
 
-  // Filter out already-assigned profiles, but keep current editItem's user_id available
   const availableProfileOptions = [
     { value: "", label: "— Tidak Dihubungkan —" },
     ...profileOptions.filter(
-      (p) =>
-        !assignedUserIds.has(p.value) || p.value === (editItem?.user_id ?? ""),
+      (p) => !assignedUserIds.has(p.value) || p.value === (editItem?.user_id ?? ""),
     ),
   ];
 
+  // ─── Table columns ────────────────────────────────────────────────────────────
   const columns = [
     { key: "nama_lengkap", label: "Nama Lengkap" },
     { key: "email", label: "Email" },
@@ -79,7 +96,7 @@ export default function JemaatPage() {
           className={`px-2 py-1 rounded-full text-xs font-semibold ${
             value === "aktif"
               ? "bg-green-100 text-green-800"
-              : value === "nonaktif"
+              : value === "tidak aktif"
                 ? "bg-red-100 text-red-800"
                 : "bg-gray-100 text-gray-600"
           }`}
@@ -110,6 +127,7 @@ export default function JemaatPage() {
     { key: "alamat", label: "Alamat" },
   ];
 
+  // ─── Modal fields ─────────────────────────────────────────────────────────────
   const fields = [
     {
       name: "user_id",
@@ -150,12 +168,7 @@ export default function JemaatPage() {
         { value: "P", label: "Perempuan" },
       ],
     },
-    {
-      name: "dob",
-      label: "Tanggal Lahir",
-      type: "date" as const,
-      required: true,
-    },
+    { name: "dob", label: "Tanggal Lahir", type: "date" as const, required: true },
     {
       name: "alamat",
       label: "Alamat",
@@ -170,7 +183,9 @@ export default function JemaatPage() {
       required: false,
       options: [
         { value: "aktif", label: "Aktif" },
-        { value: "nonaktif", label: "Nonaktif" },
+        { value: "tidak aktif", label: "Tidak Aktif" },
+        { value: "pindah", label: "Pindah" },
+        { value: "meninggal", label: "Meninggal" },
       ],
     },
     {
@@ -196,12 +211,7 @@ export default function JemaatPage() {
         { value: "true", label: "Sudah" },
       ],
     },
-    {
-      name: "tanggal_baptis",
-      label: "Tanggal Baptis",
-      type: "date" as const,
-      required: false,
-    },
+    { name: "tanggal_baptis", label: "Tanggal Baptis", type: "date" as const, required: false },
     {
       name: "discipleship_stage",
       label: "Tahap Pemuridan",
@@ -218,6 +228,7 @@ export default function JemaatPage() {
     },
   ];
 
+  // ─── Handlers ─────────────────────────────────────────────────────────────────
   const handleAdd = () => {
     setEditItem(null);
     setIsModalOpen(true);
@@ -230,12 +241,9 @@ export default function JemaatPage() {
 
   const handleDelete = async (id: string | number) => {
     if (!confirm("Yakin ingin menghapus data jemaat ini?")) return;
-    const { error } = await supabase
-      .from("jemaat")
-      .delete()
-      .eq("id", id as string);
+    const { error } = await supabase.from("jemaat").delete().eq("id", id as string);
     if (error) alert(`Gagal menghapus: ${error.message}`);
-    else loadProfileOptions(); // refresh assigned list
+    else loadProfileOptions();
   };
 
   const handleSubmit = async (data: Record<string, string>) => {
@@ -266,30 +274,66 @@ export default function JemaatPage() {
     } else {
       setIsModalOpen(false);
       setEditItem(null);
-      loadProfileOptions(); // refresh assigned list after save
+      loadProfileOptions();
     }
 
     setIsSubmitting(false);
   };
 
+  // ─── Import handler ───────────────────────────────────────────────────────────
+  const handleImport = async (rows: Record<string, any>[]) => {
+    // Map imported rows to Supabase-safe payload
+    const payload = rows.map((row) => ({
+      nama_lengkap: row.nama_lengkap,
+      email: row.email || null,
+      phone_number: row.phone_number || null,
+      gender: row.gender || null,
+      dob: row.dob,
+      alamat: row.alamat || null,
+      status_jemaat: (row.status_jemaat || "aktif") as StatusJemaat,
+      marital_status: row.marital_status || null,
+      is_baptized: row.is_baptized === true || row.is_baptized === "true",
+      tanggal_baptis: row.tanggal_baptis || null,
+      discipleship_stage: row.discipleship_stage || null,
+      notes: row.notes || null,
+    }));
+
+    const { error } = await supabase.from("jemaat").insert(payload);
+    if (error) throw new Error(error.message);
+
+    // Refresh profile assignments after bulk insert
+    await loadProfileOptions();
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-          Data Jemaat
-        </h1>
-        <p className="text-sm text-gray-500">
-          Kelola data anggota jemaat gereja
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Data Jemaat</h1>
+          <p className="text-sm text-gray-500">Kelola data anggota jemaat gereja</p>
+        </div>
+
+        {/* Download blank template for users who want to fill from scratch */}
+        <button
+          onClick={() => exportTemplate("Jemaat", JEMAAT_SCHEMA)}
+          className="text-sm text-gray-500 hover:text-blue-600 underline underline-offset-2"
+        >
+          Unduh Template Import
+        </button>
       </div>
 
       <MasterDataTable
         title="Jemaat"
         endpoint="/api/jemaat"
         columns={columns}
+        exportSchema={JEMAAT_SCHEMA}
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onImport={handleImport}
+        onItemsChange={(items) => {
+          tableItemsRef.current = items;
+        }}
       />
 
       <ModalForm

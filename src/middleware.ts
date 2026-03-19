@@ -32,6 +32,7 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   const { pathname } = request.nextUrl;
 
   if (pathname === "/") {
@@ -40,7 +41,9 @@ export async function middleware(request: NextRequest) {
 
   if (
     !user &&
-    (pathname.startsWith("/admin") || pathname.startsWith("/leader"))
+    (pathname.startsWith("/admin") ||
+      pathname.startsWith("/leader") ||
+      pathname.startsWith("/user"))
   ) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -48,6 +51,7 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
+      
       .select("role")
       .eq("id", user.id)
       .single();
@@ -56,7 +60,9 @@ export async function middleware(request: NextRequest) {
 
     if (
       !role &&
-      (pathname.startsWith("/admin") || pathname.startsWith("/leader"))
+      (pathname.startsWith("/admin") ||
+        pathname.startsWith("/leader") ||
+        pathname.startsWith("/user"))
     ) {
       return NextResponse.redirect(
         new URL("/login?error=unauthorized", request.url),
@@ -71,9 +77,24 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/leader", request.url));
     }
 
+    if (
+      pathname.startsWith("/user") &&
+      role !== "admin" &&
+      role !== "user"
+    ) {
+      const dest = role === "leader" ? "/leader" : "/login?error=unauthorized";
+      return NextResponse.redirect(new URL(dest, request.url));
+    }
+
     if (pathname.startsWith("/login")) {
       const dest =
-        role === "admin" ? "/admin" : role === "leader" ? "/leader" : "/";
+        role === "admin"
+          ? "/admin"
+          : role === "leader"
+            ? "/leader"
+            : role === "user"
+              ? "/user"
+              : "/login";
       return NextResponse.redirect(new URL(dest, request.url));
     }
   }
