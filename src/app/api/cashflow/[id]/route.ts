@@ -7,11 +7,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ── PUT /api/cashflow/:id ─────────────────────────────────────────────────────
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const body = await req.json();
 
   const { data, error } = await supabase
@@ -25,7 +25,7 @@ export async function PUT(
       reference_no:     body.reference_no || null,
       notes:            body.notes || null,
     })
-    .eq("id", params.id)
+    .eq("id", id)
     .select()
     .single();
 
@@ -33,15 +33,16 @@ export async function PUT(
   return NextResponse.json(data);
 }
 
-// ── DELETE /api/cashflow/:id ──────────────────────────────────────────────────
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const { error } = await supabase
     .from("cashflow_transactions")
     .delete()
-    .eq("id", params.id);
+    .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
