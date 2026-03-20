@@ -14,7 +14,6 @@ type Jemaat = Database["public"]["Tables"]["jemaat"]["Row"];
 type StatusJemaat = Database["public"]["Enums"]["status_jemaat_type"];
 type ProfileOption = { value: string; label: string };
 
-// ─── Shared schema: drives both export headers and import parsing ──────────────
 const JEMAAT_SCHEMA: ColumnSchema[] = [
   { key: "nama_lengkap",       label: "Nama Lengkap",       type: "string",  required: true },
   { key: "email",              label: "Email",              type: "string" },
@@ -36,15 +35,16 @@ export default function JemaatPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileOptions, setProfileOptions] = useState<ProfileOption[]>([]);
   const [assignedUserIds, setAssignedUserIds] = useState<Set<string>>(new Set());
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // ← tells MasterDataTable to reload
 
-  // Ref to expose current table items for export (injected via onItemsChange)
   const tableItemsRef = useRef<any[]>([]);
-
   const supabase = createClient();
 
   useEffect(() => {
     loadProfileOptions();
   }, []);
+
+  const triggerRefresh = () => setRefreshTrigger((k) => k + 1);
 
   const loadProfileOptions = async () => {
     const { data: profiles } = await supabase
@@ -77,11 +77,10 @@ export default function JemaatPage() {
     ),
   ];
 
-  // ─── Table columns ────────────────────────────────────────────────────────────
   const columns = [
     { key: "nama_lengkap", label: "Nama Lengkap" },
-    { key: "email", label: "Email" },
     { key: "phone_number", label: "No. Telepon" },
+    { key: "alamat", label: "Alamat" },
     {
       key: "gender",
       label: "Gender",
@@ -89,8 +88,15 @@ export default function JemaatPage() {
         value === "L" ? "Laki-laki" : value === "P" ? "Perempuan" : "-",
     },
     {
+      key: "dob",
+      label: "Tanggal Lahir",
+      render: (value: string) =>
+        value ? new Date(value).toLocaleDateString("id-ID") : "-",
+    },
+    { key: "email", label: "Email" },
+    {
       key: "status_jemaat",
-      label: "Status",
+      label: "Status Jemaat",
       render: (value: string) => (
         <span
           className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -106,8 +112,21 @@ export default function JemaatPage() {
       ),
     },
     {
+      key: "marital_status",
+      label: "Status Pernikahan",
+      render: (value: string) => {
+        const map: Record<string, string> = {
+          single: "Single",
+          married: "Menikah",
+          divorced: "Cerai",
+          widowed: "Janda/Duda",
+        };
+        return value ? (map[value] ?? value) : "-";
+      },
+    },
+    {
       key: "is_baptized",
-      label: "Baptis",
+      label: "Sudah Baptis",
       render: (value: boolean) => (
         <span
           className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -119,15 +138,24 @@ export default function JemaatPage() {
       ),
     },
     {
-      key: "tanggal_join",
-      label: "Tanggal Join",
+      key: "tanggal_baptis",
+      label: "Tanggal Baptis",
       render: (value: string) =>
         value ? new Date(value).toLocaleDateString("id-ID") : "-",
     },
-    { key: "alamat", label: "Alamat" },
+    {
+      key: "discipleship_stage",
+      label: "Tahap Pemuridan",
+      render: (value: string) => value || "-",
+    },
+    {
+      key: "notes",
+      label: "Catatan",
+      render: (value: string) => value || "-",
+    },
   ];
 
-  // ─── Modal fields ─────────────────────────────────────────────────────────────
+  // ─── Modal fields ──────────────────────────────────────────────────────────────
   const fields = [
     {
       name: "user_id",
@@ -228,7 +256,7 @@ export default function JemaatPage() {
     },
   ];
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────────
+  // ─── Handlers ──────────────────────────────────────────────────────────────────
   const handleAdd = () => {
     setEditItem(null);
     setIsModalOpen(true);
@@ -241,9 +269,15 @@ export default function JemaatPage() {
 
   const handleDelete = async (id: string | number) => {
     if (!confirm("Yakin ingin menghapus data jemaat ini?")) return;
+
     const { error } = await supabase.from("jemaat").delete().eq("id", id as string);
-    if (error) alert(`Gagal menghapus: ${error.message}`);
-    else loadProfileOptions();
+
+    if (error) {
+      alert(`Gagal menghapus: ${error.message}`);
+    } else {
+      await loadProfileOptions();
+      triggerRefresh(); // ← table re-fetches from /api/jemaat
+    }
   };
 
   const handleSubmit = async (data: Record<string, string>) => {
@@ -274,15 +308,15 @@ export default function JemaatPage() {
     } else {
       setIsModalOpen(false);
       setEditItem(null);
-      loadProfileOptions();
+      await loadProfileOptions();
+      triggerRefresh(); // ← table re-fetches from /api/jemaat
     }
 
     setIsSubmitting(false);
   };
 
-  // ─── Import handler ───────────────────────────────────────────────────────────
+  // ─── Import handler ────────────────────────────────────────────────────────────
   const handleImport = async (rows: Record<string, any>[]) => {
-    // Map imported rows to Supabase-safe payload
     const payload = rows.map((row) => ({
       nama_lengkap: row.nama_lengkap,
       email: row.email || null,
@@ -301,8 +335,8 @@ export default function JemaatPage() {
     const { error } = await supabase.from("jemaat").insert(payload);
     if (error) throw new Error(error.message);
 
-    // Refresh profile assignments after bulk insert
     await loadProfileOptions();
+    // MasterDataTable handles its own importKey refresh internally
   };
 
   return (
@@ -313,7 +347,6 @@ export default function JemaatPage() {
           <p className="text-sm text-gray-500">Kelola data anggota jemaat gereja</p>
         </div>
 
-        {/* Download blank template for users who want to fill from scratch */}
         <button
           onClick={() => exportTemplate("Jemaat", JEMAAT_SCHEMA)}
           className="text-sm text-gray-500 hover:text-blue-600 underline underline-offset-2"
@@ -334,6 +367,7 @@ export default function JemaatPage() {
         onItemsChange={(items) => {
           tableItemsRef.current = items;
         }}
+        refreshTrigger={refreshTrigger} // ← drives reload after edit/delete
       />
 
       <ModalForm

@@ -26,8 +26,11 @@ export default function IcareGroupsPage() {
   const [editItem, setEditItem] = useState<IcareRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // ← drives table reload
 
   const supabase = createClient();
+
+  const triggerRefresh = () => setRefreshTrigger((k) => k + 1);
 
   useEffect(() => {
     const loadLeaders = async () => {
@@ -120,6 +123,7 @@ export default function IcareGroupsPage() {
     if (!confirm("Yakin ingin menghapus iCare group ini?")) return;
     const { error } = await supabase.from("icare_groups").delete().eq("id", id as string);
     if (error) alert(`Gagal menghapus: ${error.message}`);
+    else triggerRefresh(); // ← re-fetch table
   };
 
   const handleSubmit = async (data: Record<string, string | null>) => {
@@ -135,12 +139,16 @@ export default function IcareGroupsPage() {
     const { error } = editItem
       ? await supabase.from("icare_groups").update(payload).eq("id", editItem.id)
       : await supabase.from("icare_groups").insert([payload]);
-    if (error) alert(`Gagal menyimpan: ${error.message}`);
-    else { setIsModalOpen(false); setEditItem(null); }
+    if (error) {
+      alert(`Gagal menyimpan: ${error.message}`);
+    } else {
+      setIsModalOpen(false);
+      setEditItem(null);
+      triggerRefresh(); // ← re-fetch table
+    }
     setIsSubmitting(false);
   };
 
-  // leader_id is intentionally excluded — no way to resolve names from import file
   const handleImport = async (rows: Record<string, any>[]) => {
     const payload = rows.map((row) => ({
       nama_icare: row.nama_icare,
@@ -148,10 +156,11 @@ export default function IcareGroupsPage() {
       jam_pertemuan: row.jam_pertemuan?.trim() || null,
       lokasi_pertemuan: row.lokasi_pertemuan?.trim() || null,
       deskripsi: row.deskripsi?.trim() || null,
-      leader_id: null, // assign leader manually after import
+      leader_id: null,
     }));
     const { error } = await supabase.from("icare_groups").insert(payload);
     if (error) throw new Error(error.message);
+    // MasterDataTable handles its own importKey refresh internally
   };
 
   return (
@@ -178,6 +187,7 @@ export default function IcareGroupsPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onImport={handleImport}
+        refreshTrigger={refreshTrigger} // ← drives reload after edit/delete
       />
 
       <ModalForm

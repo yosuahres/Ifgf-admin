@@ -31,15 +31,17 @@ interface MasterDataTableProps<T = any> {
   title: string;
   endpoint: string;
   columns: Column[];
-  /** Schema used for both export (embedded metadata) and import (column mapping) */
   exportSchema?: ColumnSchema[];
   onAdd?: () => void;
   onEdit?: (item: T) => void;
   onDelete?: (id: string | number) => void;
-  /** Called after a successful import so the page can refresh or react */
   onImport?: (rows: Record<string, any>[]) => Promise<void>;
-  /** Fires whenever the table's loaded items change — useful to access current rows */
   onItemsChange?: (items: T[]) => void;
+  /**
+   * Increment this from the parent to trigger a data reload.
+   * e.g. after a successful edit or delete.
+   */
+  refreshTrigger?: number;
 }
 
 export default function MasterDataTable<T = any>({
@@ -52,6 +54,7 @@ export default function MasterDataTable<T = any>({
   onDelete,
   onImport,
   onItemsChange,
+  refreshTrigger = 0,
 }: MasterDataTableProps<T>) {
   const [items, setItems] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
@@ -61,7 +64,6 @@ export default function MasterDataTable<T = any>({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  // Track import completion to trigger table refresh
   const [importKey, setImportKey] = useState(0);
 
   const toolbarScrollRef = useRef<HTMLDivElement>(null);
@@ -109,16 +111,20 @@ export default function MasterDataTable<T = any>({
     } finally {
       setLoading(false);
     }
-  }, [endpoint, page, limit, debouncedSearch, importKey]); // importKey forces reload after import
+  }, [endpoint, page, limit, debouncedSearch, importKey, refreshTrigger]); // ← refreshTrigger added
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Wrap onImport to trigger table reload after success
+  // Clear selection after any reload so stale selected item doesn't persist
+  useEffect(() => {
+    setSelected(null);
+  }, [refreshTrigger, importKey]);
+
   const handleImport = async (rows: Record<string, any>[]) => {
     await onImport?.(rows);
-    setImportKey((k) => k + 1); // triggers loadData via useCallback dep
+    setImportKey((k) => k + 1);
   };
 
   return (
@@ -137,7 +143,6 @@ export default function MasterDataTable<T = any>({
           className="flex items-center overflow-x-auto scrollbar-hide h-14 px-8 lg:px-3 gap-6"
         >
           <div className="flex items-center gap-4 shrink-0">
-            {/* Export — embeds schema if provided */}
             <button
               onClick={() => exportToExcel(items, title, exportSchema)}
               className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 font-medium whitespace-nowrap"
@@ -147,7 +152,6 @@ export default function MasterDataTable<T = any>({
 
             <div className="w-px h-4 bg-gray-300" />
 
-            {/* Import — only shown if schema + handler provided */}
             {exportSchema && onImport && (
               <>
                 <ImportButton

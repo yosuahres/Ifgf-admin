@@ -41,7 +41,6 @@ export async function importFromExcel<T = Record<string, any>>(
     };
   }
 
-  // Read all rows as arrays (raw, no header inference)
   const rows: any[][] = utils.sheet_to_json(worksheet, {
     header: 1,
     defval: "",
@@ -62,7 +61,6 @@ export async function importFromExcel<T = Record<string, any>>(
   let headerRowIndex = 0;
   let dataStartIndex = 1;
 
-  // Detect embedded schema in row 1
   const firstCell = String(rows[0]?.[0] || "");
   if (firstCell.startsWith("__SCHEMA__:")) {
     try {
@@ -71,11 +69,16 @@ export async function importFromExcel<T = Record<string, any>>(
       headerRowIndex = 1;
       dataStartIndex = 2;
     } catch {
-      // schema parse failed, fall through
+      return {
+        data: [],
+        errors: [{ row: 0, message: "Invalid schema format in first cell." }],
+        schema: null,
+        totalRows: 0,
+        validRows: 0,
+      };
     }
   }
 
-  // If still no schema, build from header row
   if (!schema) {
     const headers: string[] = rows[headerRowIndex] || [];
     schema = headers.map((label) => ({
@@ -93,7 +96,6 @@ export async function importFromExcel<T = Record<string, any>>(
   const errors: ImportError[] = [];
   const data: T[] = [];
 
-  // Map column index → schema entry by matching header label
   const columnMap: Record<number, ColumnSchema> = {};
   schema.forEach((col) => {
     const idx = headerLabels.findIndex(
@@ -104,7 +106,6 @@ export async function importFromExcel<T = Record<string, any>>(
     }
   });
 
-  // Warn about unmatched schema columns
   schema.forEach((col) => {
     const matched = Object.values(columnMap).some((c) => c.key === col.key);
     if (!matched) {
@@ -116,12 +117,11 @@ export async function importFromExcel<T = Record<string, any>>(
     }
   });
 
-  // Parse data rows
   const dataRows = rows.slice(dataStartIndex);
   let validRows = 0;
 
   dataRows.forEach((row, rowIndex) => {
-    const humanRow = rowIndex + dataStartIndex + 1; // 1-based row number for user
+    const humanRow = rowIndex + dataStartIndex + 1; 
     const record: Record<string, any> = {};
     let rowHasError = false;
 
@@ -129,7 +129,6 @@ export async function importFromExcel<T = Record<string, any>>(
       const rawValue = row[Number(colIdx)];
       const value = rawValue === undefined || rawValue === "" ? null : rawValue;
 
-      // Required field check
       if (col.required && (value === null || value === "")) {
         errors.push({
           row: humanRow,
@@ -140,13 +139,11 @@ export async function importFromExcel<T = Record<string, any>>(
         return;
       }
 
-      // Type coercion
       record[col.key] = coerceValue(value, col.type || "string");
     });
 
     if (rowHasError && options?.skipInvalidRows) return;
 
-    // Skip entirely blank rows
     const allEmpty = Object.values(record).every(
       (v) => v === null || v === ""
     );
@@ -167,6 +164,56 @@ export async function importFromExcel<T = Record<string, any>>(
   };
 }
 
+const ID_MONTHS: Record<string, string> = {
+  januari:   "January",
+  februari:  "February",
+  maret:     "March",
+  april:     "April",
+  mei:       "May",
+  juni:      "June",
+  juli:      "July",
+  agustus:   "August",
+  september: "September",
+  oktober:   "October",
+  november:  "November",
+  desember:  "December",
+};
+
+/**
+ * Supports:
+ *   - "15 mei 2004"       → "2004-05-15"
+ *   - "15-05-2004"        → "2004-05-15"
+ *   - "05/15/2004"        → "2004-05-15"
+ *   - "15 May 2004"       → "2004-05-15"
+ *   - "2004-05-15"        → "2004-05-15"  
+ */
+function parseFlexibleDate(str: string): string | null {
+  const trimmed = str.trim();
+
+  const direct = new Date(trimmed);
+  if (!isNaN(direct.getTime())) {
+    return direct.toISOString().split("T")[0];
+  }
+
+  const normalized = trimmed
+    .toLowerCase()
+    .replace(/\b(\w+)\b/g, (word) => ID_MONTHS[word] ?? word);
+
+  const withId = new Date(normalized);
+  if (!isNaN(withId.getTime())) {
+    return withId.toISOString().split("T")[0];
+  }
+
+  const dmyMatch = trimmed.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})$/);
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch;
+    const d = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+    if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  }
+
+  return null;
+}
+
 function coerceValue(value: any, type: string): any {
   if (value === null || value === undefined || value === "") return null;
 
@@ -175,31 +222,31 @@ function coerceValue(value: any, type: string): any {
       const n = Number(value);
       return isNaN(n) ? null : n;
     }
+
     case "boolean": {
       if (typeof value === "boolean") return value;
       const str = String(value).toLowerCase().trim();
-      if (["true", "yes", "1", "ya"].includes(str)) return true;
-      if (["false", "no", "0", "tidak"].includes(str)) return false;
+      if (["true", "yes", "1", "ya", "sudah"].includes(str)) return true;
+      if (["false", "no", "0", "tidak", "belum"].includes(str)) return false;
       return null;
     }
+
     case "date": {
-      // Excel serial date number support
       if (typeof value === "number") {
         const date = excelSerialToDate(value);
         return date ? date.toISOString().split("T")[0] : null;
       }
-      const d = new Date(value);
-      return isNaN(d.getTime()) ? String(value) : d.toISOString().split("T")[0];
+      return parseFlexibleDate(String(value));
     }
+
     default:
       return String(value).trim();
   }
 }
 
 function excelSerialToDate(serial: number): Date | null {
-  // Excel's epoch starts Jan 1 1900, with a leap year bug on day 60
   if (serial < 1) return null;
-  const utcDays = serial - 25569; // offset to Unix epoch
+  const utcDays = serial - 25569;
   const utcMs = utcDays * 86400 * 1000;
   const d = new Date(utcMs);
   return isNaN(d.getTime()) ? null : d;

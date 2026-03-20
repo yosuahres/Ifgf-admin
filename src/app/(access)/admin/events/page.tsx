@@ -22,8 +22,11 @@ export default function EventsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // ← drives table reload
 
   const supabase = createClient();
+
+  const triggerRefresh = () => setRefreshTrigger((k) => k + 1);
 
   const columns = [
     { key: "event_name", label: "Nama Event" },
@@ -98,6 +101,7 @@ export default function EventsPage() {
     if (!confirm("Yakin ingin menghapus event ini?")) return;
     const { error } = await supabase.from("events").delete().eq("id", id as string);
     if (error) alert(`Gagal menghapus: ${error.message}`);
+    else triggerRefresh(); // ← re-fetch table
   };
 
   const handleSubmit = async (data: Record<string, string>) => {
@@ -115,7 +119,11 @@ export default function EventsPage() {
       ? await supabase.from("events").update(payload as TablesUpdate<"events">).eq("id", editItem.id)
       : await supabase.from("events").insert(payload as TablesInsert<"events">);
     if (error) alert(`Gagal menyimpan: ${error.message}`);
-    else { setIsModalOpen(false); setEditItem(null); }
+    else {
+      setIsModalOpen(false);
+      setEditItem(null);
+      triggerRefresh(); // ← re-fetch table
+    }
     setIsSubmitting(false);
   };
 
@@ -131,6 +139,7 @@ export default function EventsPage() {
     }));
     const { error } = await supabase.from("events").insert(payload);
     if (error) throw new Error(error.message);
+    // MasterDataTable handles its own importKey refresh internally
   };
 
   return (
@@ -157,6 +166,7 @@ export default function EventsPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onImport={handleImport}
+        refreshTrigger={refreshTrigger} // ← drives reload after edit/delete
       />
 
       <ModalForm
