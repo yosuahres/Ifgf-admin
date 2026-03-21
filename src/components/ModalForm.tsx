@@ -1,6 +1,4 @@
-//components/ModalForm.tsx
 "use client";
-
 import { Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -22,6 +20,17 @@ interface ModalFormProps {
   isLoading?: boolean;
 }
 
+// Generate time options in 30-minute increments, 24-hour format
+const TIME_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "— Pilih Jam —" },
+  ...Array.from({ length: 48 }, (_, i) => {
+    const h = Math.floor(i / 2);
+    const m = i % 2 === 0 ? "00" : "30";
+    const val = `${String(h).padStart(2, "0")}:${m}`;
+    return { value: val, label: val };
+  }),
+];
+
 export default function ModalForm({
   isOpen,
   onClose,
@@ -36,25 +45,29 @@ export default function ModalForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    setFormData(initialData ?? {});
+    // Normalize time values to HH:MM (strip seconds if present e.g. "13:30:00")
+    const normalized: Record<string, any> = { ...(initialData ?? {}) };
+    (fields ?? []).forEach((field) => {
+      if (field.type === "time" && typeof normalized[field.name] === "string") {
+        normalized[field.name] = normalized[field.name].slice(0, 5);
+      }
+    });
+    setFormData(normalized);
     setErrors({});
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, fields]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     const newErrors: Record<string, string> = {};
     fields.forEach((field) => {
       if (field.required && !formData[field.name]) {
         newErrors[field.name] = `${field.label} is required`;
       }
     });
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-
     onSubmit(formData);
   };
 
@@ -93,9 +106,7 @@ export default function ModalForm({
               {field.type === "select" ? (
                 <select
                   value={formData[field.name] || ""}
-                  onChange={(e) =>
-                    handleInputChange(field.name, e.target.value)
-                  }
+                  onChange={(e) => handleInputChange(field.name, e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required={field.required}
                 >
@@ -106,24 +117,37 @@ export default function ModalForm({
                     </option>
                   ))}
                 </select>
+
+              ) : field.type === "time" ? (
+                // Custom time select — avoids browser 12/24h locale issues
+                <select
+                  value={formData[field.name] || ""}
+                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required={field.required}
+                >
+                  {TIME_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
               ) : field.type === "textarea" ? (
                 <textarea
                   value={formData[field.name] || ""}
-                  onChange={(e) =>
-                    handleInputChange(field.name, e.target.value)
-                  }
+                  onChange={(e) => handleInputChange(field.name, e.target.value)}
                   placeholder={field.placeholder}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   rows={4}
                   required={field.required}
                 />
+
               ) : (
                 <input
                   type={field.type}
                   value={formData[field.name] || ""}
-                  onChange={(e) =>
-                    handleInputChange(field.name, e.target.value)
-                  }
+                  onChange={(e) => handleInputChange(field.name, e.target.value)}
                   placeholder={field.placeholder}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required={field.required}

@@ -1,5 +1,6 @@
+//components/Sidebar.tsx
 "use client";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Settings, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { type NavItem, navByRole } from "@/constants/navigation";
@@ -22,7 +23,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
 
   useEffect(() => {
     if (isMobile) setCollapsed(false);
-  }, [isMobile]); 
+  }, [isMobile]);
 
   useEffect(() => {
     onMobileClose?.();
@@ -45,7 +46,6 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
     fetchUser();
   }, []);
 
-  // Auto-open dropdown if current path matches a child
   useEffect(() => {
     const autoOpen: Record<string, boolean> = {};
     navItems.forEach((item) => {
@@ -63,50 +63,57 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
   const sidebarContent = (
     <aside
       className={`h-full bg-white border-r border-gray-200 flex flex-col shrink-0 transition-all duration-300 ${
-        isMobile ? "w-56" : collapsed ? "w-14" : "w-56"
+        isMobile ? "w-72" : collapsed ? "w-14" : "w-72"
       }`}
     >
-      {/* Top bar */}
-      <div className="h-14 border-b border-gray-100 flex items-center shrink-0 px-3 gap-2">
-        {(!collapsed || isMobile) && user && (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">
-              {user.full_name.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-900 truncate leading-tight">
-                {user.full_name}
-              </p>
-              <p className="text-[0.6rem] text-gray-400 capitalize">{user.role}</p>
-            </div>
-          </div>
-        )}
-        {collapsed && !isMobile && user && (
-          <div
-            title={user.full_name}
-            className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold mx-auto"
-          >
-            {user.full_name.charAt(0).toUpperCase()}
-          </div>
-        )}
-
+      {/* Top bar — logo + collapse/close button */}
+      <div className="h-14 border-b border-gray-100 flex items-center shrink-0 px-3">
         {isMobile ? (
+          <>
+            {/* Logo always visible on mobile */}
+            <div className="flex items-center gap-2 flex-1">
+              <img
+                src="/assets/ifgf-logo.png"
+                alt="IFGF Logo"
+                width={28}
+                height={28}
+                className="h-20 w-auto object-contain"
+              />
+            </div>
+            <button
+              onClick={onMobileClose}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </>
+        ) : collapsed ? (
           <button
-            onClick={onMobileClose}
-            className="ml-auto w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            onClick={() => setCollapsed(false)}
+            aria-label="Expand"
+            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors mx-auto"
           >
-            <X size={14} />
+            <ChevronRight size={14} />
           </button>
         ) : (
-          <button
-            onClick={() => setCollapsed((p) => !p)}
-            aria-label={collapsed ? "Expand" : "Collapse"}
-            className={`w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0 ${
-              collapsed ? "mx-auto" : "ml-auto"
-            }`}
-          >
-            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-          </button>
+          <>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <img
+                src="/assets/ifgf-logo.png"
+                alt="IFGF Logo"
+                width={28}
+                height={28}
+                className="h-15 w-auto object-contain"
+              />
+            </div>
+            <button
+              onClick={() => setCollapsed(true)}
+              aria-label="Collapse"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+            >
+              <ChevronLeft size={14} />
+            </button>
+          </>
         )}
       </div>
 
@@ -115,7 +122,6 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
         {navItems.map((item) => {
           const { label, icon: Icon, href, children } = item;
 
-          // --- Item WITH children (dropdown) ---
           if (children && children.length > 0) {
             const isOpen = openDropdowns[label] ?? false;
             const anyChildActive = children.some((c) => c.href === pathname);
@@ -129,7 +135,6 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
                     } else {
                       toggleDropdown(label);
                     }
-
                   }}
                   title={collapsed && !isMobile ? label : undefined}
                   className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors
@@ -184,6 +189,33 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
           );
         })}
       </nav>
+
+      {/* Bottom bar — name, role, settings */}
+      {user && (
+        <div className="border-t border-gray-100 flex items-center shrink-0 px-3 py-3 gap-2">
+          {(!collapsed || isMobile) && (
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-900 truncate leading-tight">
+                {user.full_name}
+              </p>
+              <p className="text-[0.6rem] text-gray-400 capitalize">{user.role}</p>
+            </div>
+          )}
+          <a
+            href="/settings"
+            title="Settings"
+            className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors shrink-0 ${
+              collapsed && !isMobile ? "mx-auto" : ""
+            } ${
+              pathname === "/settings"
+                ? "text-blue-600 bg-blue-50"
+                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Settings size={14} />
+          </a>
+        </div>
+      )}
     </aside>
   );
 

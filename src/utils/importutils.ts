@@ -16,6 +16,12 @@ export interface ImportError {
   message: string;
 }
 
+/**
+ * Keys that should never be treated as required during import,
+ * regardless of what the embedded schema says.
+ */
+const NEVER_REQUIRED_ON_IMPORT = new Set(["dob"]);
+
 export async function importFromExcel<T = Record<string, any>>(
   file: File,
   options?: {
@@ -77,6 +83,14 @@ export async function importFromExcel<T = Record<string, any>>(
         validRows: 0,
       };
     }
+  }
+
+  // Strip `required` from fields that should never be required on import,
+  // regardless of what the embedded schema says (e.g. old exported templates).
+  if (schema) {
+    schema = schema.map((col) =>
+      NEVER_REQUIRED_ON_IMPORT.has(col.key) ? { ...col, required: false } : col
+    );
   }
 
   if (!schema) {

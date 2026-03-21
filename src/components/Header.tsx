@@ -31,16 +31,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </button>
         )}
         <div className="flex items-center gap-2.5">
-          <Link href="/" >
-            <img
+            {/* <img
               src="/assets/ifgf-logo.png"
               alt="IFGF Logo"
               width={28}
               height={28}
               className="h-20 w-auto object-contain"
-            />
-          </Link>
-          <span className="font-semibold text-gray-900 text-sm">IFGF Admin</span>
+            /> */}
+          <span className="font-semibold text-gray-900 text-xl">IFGF Batam Control</span>
         </div>
       </div>
       <LogoutButton onLogout={handleLogout} />

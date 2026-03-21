@@ -19,7 +19,7 @@ const JEMAAT_SCHEMA: ColumnSchema[] = [
   { key: "email",              label: "Email",              type: "string" },
   { key: "phone_number",       label: "No. Telepon",        type: "string" },
   { key: "gender",             label: "Gender",             type: "string" },
-  { key: "dob",                label: "Tanggal Lahir",      type: "date",    required: true },
+  { key: "dob",                label: "Tanggal Lahir",      type: "date" },  // not required
   { key: "alamat",             label: "Alamat",             type: "string" },
   { key: "status_jemaat",      label: "Status Jemaat",      type: "string" },
   { key: "marital_status",     label: "Status Pernikahan",  type: "string" },
@@ -196,7 +196,7 @@ export default function JemaatPage() {
         { value: "P", label: "Perempuan" },
       ],
     },
-    { name: "dob", label: "Tanggal Lahir", type: "date" as const, required: true },
+    { name: "dob", label: "Tanggal Lahir", type: "date" as const, required: false },  // not required
     {
       name: "alamat",
       label: "Alamat",
@@ -289,7 +289,7 @@ export default function JemaatPage() {
       email: data.email || null,
       phone_number: data.phone_number || null,
       gender: data.gender || null,
-      dob: data.dob,
+      dob: (data.dob || null) as any,
       alamat: data.alamat || null,
       status_jemaat: (data.status_jemaat || "aktif") as StatusJemaat,
       marital_status: data.marital_status || null,
@@ -322,7 +322,7 @@ export default function JemaatPage() {
       email: row.email || null,
       phone_number: row.phone_number || null,
       gender: row.gender || null,
-      dob: row.dob,
+      dob: row.dob || null,  // nullable
       alamat: row.alamat || null,
       status_jemaat: (row.status_jemaat || "aktif") as StatusJemaat,
       marital_status: row.marital_status || null,

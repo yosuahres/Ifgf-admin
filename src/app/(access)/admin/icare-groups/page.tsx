@@ -26,7 +26,7 @@ export default function IcareGroupsPage() {
   const [editItem, setEditItem] = useState<IcareRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([]);
-  const [refreshTrigger, setRefreshTrigger] = useState(0); // ← drives table reload
+  const [refreshTrigger, setRefreshTrigger] = useState(0); 
 
   const supabase = createClient();
 
