@@ -17,6 +17,7 @@ const ROLE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 type Toast = { type: "success" | "error"; message: string } | null;
+type ActiveTab = "profile" | "account";
 
 function Toast({ toast }: { toast: Toast }) {
   if (!toast) return null;
@@ -70,6 +71,7 @@ export default function SettingsPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("profile");
 
   // Profile form
   const [fullName, setFullName] = useState("");
@@ -171,170 +173,217 @@ export default function SettingsPage() {
     );
   }
 
+  const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
+    { id: "profile", label: "Public profile", icon: <User size={16} /> },
+    { id: "account", label: "Account",        icon: <Lock size={16} /> },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      {/* Page header */}
-      <div className="flex items-center gap-3">
+      {/* Top back bar */}
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-2">
         <button
           onClick={() => window.history.back()}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors shrink-0"
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={15} />
+          Back
         </button>
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage your account profile and security.</p>
-        </div>
       </div>
 
-      {/* ── Profile Card ── */}
-      <section className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-        {/* Card header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-            <User size={16} className="text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">Profile Information</h2>
-            <p className="text-xs text-gray-400">Update your display name.</p>
-          </div>
-        </div>
-
-        <div className="px-6 py-5 space-y-5">
-          {/* Avatar + role badge */}
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
-              {profile?.full_name?.charAt(0).toUpperCase() ?? "?"}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">{profile?.full_name}</p>
-              <p className="text-xs text-gray-400 mb-1.5">{profile?.email}</p>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${roleInfo.color}`}>
-                <Shield size={11} />
-                {roleInfo.label}
-              </span>
-            </div>
-          </div>
-
-          {/* Read-only role info */}
-          <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-start gap-2.5 text-xs text-gray-500">
-            <AlertCircle size={14} className="shrink-0 mt-px text-gray-400" />
-            Your role is assigned by an administrator and cannot be changed from this page.
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Full Name</label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  placeholder="Your full name"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Email Address</label>
-                <input
-                  type="email"
-                  value={profile?.email ?? ""}
-                  readOnly
-                  disabled
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-400 cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <Toast toast={profileToast} />
+      <div className="max-w-5xl mx-auto px-4 pb-12 flex gap-8">
+        {/* ── Sidebar ── */}
+        <aside className="w-56 shrink-0 pt-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Settings</p>
+          <nav className="flex flex-col gap-0.5">
+            {navItems.map((item) => (
               <button
-                type="submit"
-                disabled={savingProfile}
-                className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${activeTab === item.id
+                    ? "bg-blue-50 text-blue-700 border border-blue-100"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
               >
-                {savingProfile && (
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                )}
-                {savingProfile ? "Saving…" : "Save changes"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      {/* ── Change Password Card ── */}
-      <section className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-            <Lock size={16} className="text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">Change Password</h2>
-            <p className="text-xs text-gray-400">Choose a strong password (min. 8 characters).</p>
-          </div>
-        </div>
-
-        <div className="px-6 py-5">
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">New Password</label>
-              <PasswordInput
-                value={newPassword}
-                onChange={setNewPassword}
-                placeholder="New password"
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Confirm Password</label>
-              <PasswordInput
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                placeholder="Confirm new password"
-                autoComplete="new-password"
-              />
-            </div>
-
-            {/* Password strength hint */}
-            {newPassword.length > 0 && (
-              <div className="flex gap-1.5 items-center">
-                {[4, 8, 12].map((threshold, i) => (
-                  <div
-                    key={i}
-                    className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                      newPassword.length >= threshold
-                        ? i === 0 ? "bg-red-400" : i === 1 ? "bg-yellow-400" : "bg-green-500"
-                        : "bg-gray-200"
-                    }`}
-                  />
-                ))}
-                <span className="text-xs text-gray-400 ml-1">
-                  {newPassword.length < 4 ? "Too short" : newPassword.length < 8 ? "Weak" : newPassword.length < 12 ? "Fair" : "Strong"}
+                <span className={activeTab === item.id ? "text-blue-600" : "text-gray-400"}>
+                  {item.icon}
                 </span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-1">
-              <Toast toast={passwordToast} />
-              <button
-                type="submit"
-                disabled={savingPassword}
-                className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                {savingPassword && (
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                )}
-                {savingPassword ? "Updating…" : "Update password"}
+                {item.label}
               </button>
-            </div>
-          </form>
-        </div>
-      </section>
-    </div>
+            ))}
+          </nav>
+        </aside>
+
+        {/* ── Main content ── */}
+        <main className="flex-1 min-w-0 pt-2 space-y-6">
+
+          {/* PUBLIC PROFILE TAB */}
+          {activeTab === "profile" && (
+            <>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">Public profile</h1>
+                <p className="text-sm text-gray-500 mt-0.5">Update your display name and view your account details.</p>
+              </div>
+
+              <section className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <User size={16} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Profile Information</h2>
+                    <p className="text-xs text-gray-400">Update your display name.</p>
+                  </div>
+                </div>
+
+                <div className="px-6 py-5 space-y-5">
+                  {/* Avatar + role badge */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+                      {profile?.full_name?.charAt(0).toUpperCase() ?? "?"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{profile?.full_name}</p>
+                      <p className="text-xs text-gray-400 mb-1.5">{profile?.email}</p>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${roleInfo.color}`}>
+                        <Shield size={11} />
+                        {roleInfo.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Read-only role info */}
+                  <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-start gap-2.5 text-xs text-gray-500">
+                    <AlertCircle size={14} className="shrink-0 mt-px text-gray-400" />
+                    Your role is assigned by an administrator and cannot be changed from this page.
+                  </div>
+
+                  {/* Form */}
+                  <form onSubmit={handleSaveProfile} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium text-gray-700">Full Name</label>
+                        <input
+                          type="text"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          required
+                          placeholder="Your full name"
+                          className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium text-gray-700">Email Address</label>
+                        <input
+                          type="email"
+                          value={profile?.email ?? ""}
+                          readOnly
+                          disabled
+                          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-400 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <Toast toast={profileToast} />
+                      <button
+                        type="submit"
+                        disabled={savingProfile}
+                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        {savingProfile && (
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        )}
+                        {savingProfile ? "Saving…" : "Save changes"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ACCOUNT TAB */}
+          {activeTab === "account" && (
+            <>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">Account</h1>
+                <p className="text-sm text-gray-500 mt-0.5">Manage your password and account security.</p>
+              </div>
+
+              <section className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <Lock size={16} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Change Password</h2>
+                    <p className="text-xs text-gray-400">Choose a strong password (min. 8 characters).</p>
+                  </div>
+                </div>
+
+                <div className="px-6 py-5">
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium text-gray-700">New Password</label>
+                      <PasswordInput
+                        value={newPassword}
+                        onChange={setNewPassword}
+                        placeholder="New password"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium text-gray-700">Confirm Password</label>
+                      <PasswordInput
+                        value={confirmPassword}
+                        onChange={setConfirmPassword}
+                        placeholder="Confirm new password"
+                        autoComplete="new-password"
+                      />
+                    </div>
+
+                    {/* Password strength hint */}
+                    {newPassword.length > 0 && (
+                      <div className="flex gap-1.5 items-center">
+                        {[4, 8, 12].map((threshold, i) => (
+                          <div
+                            key={i}
+                            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                              newPassword.length >= threshold
+                                ? i === 0 ? "bg-red-400" : i === 1 ? "bg-yellow-400" : "bg-green-500"
+                                : "bg-gray-200"
+                            }`}
+                          />
+                        ))}
+                        <span className="text-xs text-gray-400 ml-1">
+                          {newPassword.length < 4 ? "Too short" : newPassword.length < 8 ? "Weak" : newPassword.length < 12 ? "Fair" : "Strong"}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <Toast toast={passwordToast} />
+                      <button
+                        type="submit"
+                        disabled={savingPassword}
+                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        {savingPassword && (
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        )}
+                        {savingPassword ? "Updating…" : "Update password"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+            </>
+          )}
+
+        </main>
+      </div>
     </div>
   );
 }

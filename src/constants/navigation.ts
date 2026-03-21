@@ -3,6 +3,7 @@ import {
   BookOpen,
   Calendar,
   Church,
+  DollarSign,
   Group,
   LayoutDashboard,
   Settings,
@@ -43,6 +44,15 @@ export const leaderNav: NavItem[] = [
 
 export const userNav: NavItem[] = [
   { href: "/user", label: "Dashboard", icon: LayoutDashboard },
+  {
+    label: "Cashflow",
+    icon: Group,
+    children: [
+      { href: "/user/cashflow", label: "Cash Report", icon: BookOpen },
+      { href: "/user/cashin", label: "Cash In", icon: DollarSign },
+      { href: "/user/cashout", label: "Cash Out", icon: DollarSign },
+    ],
+  },
   { href: "/user/persembahan", label: "Persembahan", icon: BookOpen },
 ];
 

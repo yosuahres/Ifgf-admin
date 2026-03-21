@@ -180,7 +180,7 @@ export default function DashboardPage() {
           {/* Content */}
           <div className="p-4">
             {loadingBirthdays ? (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />
                 ))}
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-400">Tidak ada ulang tahun dalam 7 hari ke depan</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
                 {birthdays.map((person) => (
                   <BirthdayCard key={person.id} person={person} />
                 ))}
