@@ -1,3 +1,4 @@
+//admin/events/page.tsx
 "use client";
 import { useState } from "react";
 import MasterDataTable from "@/components/MasterDataTable";
@@ -41,17 +42,18 @@ type Occurrence = {
 };
 
 export default function EventsPage() {
-  const [isModalOpen, setIsModalOpen]     = useState(false);
-  const [editItem, setEditItem]           = useState<any | null>(null);
-  const [isSubmitting, setIsSubmitting]   = useState(false);
+  const [isModalOpen, setIsModalOpen]       = useState(false);
+  const [editItem, setEditItem]             = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting]     = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Expanded row state
-  const [expandedId, setExpandedId]       = useState<string | null>(null);
-  const [occurrences, setOccurrences]     = useState<Occurrence[]>([]);
-  const [loadingOcc, setLoadingOcc]       = useState(false);
-  const [generatingId, setGeneratingId]   = useState<string | null>(null);
-  const [genResult, setGenResult]         = useState<string | null>(null);
+  const [expandedId, setExpandedId]         = useState<string | null>(null);
+  const [occurrences, setOccurrences]       = useState<Occurrence[]>([]);
+  const [loadingOcc, setLoadingOcc]         = useState(false);
+
+  // Track which row is saving its recurrence change
+  const [savingRecurrenceId, setSavingRecurrenceId] = useState<string | null>(null);
 
   const supabase = createClient();
   const triggerRefresh = () => setRefreshTrigger((k) => k + 1);
@@ -72,29 +74,41 @@ export default function EventsPage() {
     if (expandedId === item.id) {
       setExpandedId(null);
       setOccurrences([]);
-      setGenResult(null);
     } else {
       setExpandedId(item.id);
-      setGenResult(null);
       loadOccurrences(item.id);
     }
   };
 
-  // ── Generate occurrences ────────────────────────────────────────
-  const handleGenerate = async (item: any) => {
-    setGeneratingId(item.id);
-    setGenResult(null);
-    const result = await generateOccurrences(item);
-    if (result.error) {
-      setGenResult(`⚠ ${result.error}`);
-    } else {
-      setGenResult(
-        `✓ ${result.inserted} occurrence${result.inserted !== 1 ? "s" : ""} dibuat` +
-        (result.skipped > 0 ? `, ${result.skipped} sudah ada` : "")
-      );
-      loadOccurrences(item.id);
+  // ── Inline recurrence change: save + auto-generate ──────────────
+  const handleRecurrenceChange = async (item: any, newRule: string) => {
+    setSavingRecurrenceId(item.id);
+
+    // 1. Persist the new rule
+    const { error } = await supabase
+      .from("events")
+      .update({ recurrence_rule: newRule || null })
+      .eq("id", item.id);
+
+    if (error) {
+      alert(`Gagal menyimpan recurrence: ${error.message}`);
+      setSavingRecurrenceId(null);
+      return;
     }
-    setGeneratingId(null);
+
+    // 2. Auto-generate occurrences if a rule was chosen
+    if (newRule) {
+      const updatedItem = { ...item, recurrence_rule: newRule };
+      await generateOccurrences(updatedItem);
+
+      // Reload occurrences if this row is expanded
+      if (expandedId === item.id) {
+        await loadOccurrences(item.id);
+      }
+    }
+
+    setSavingRecurrenceId(null);
+    triggerRefresh();
   };
 
   // ── Cancel / restore an occurrence ─────────────────────────────
@@ -117,7 +131,9 @@ export default function EventsPage() {
           className="flex items-center gap-1.5 text-left hover:text-blue-600 transition-colors"
         >
           <span
-            className={`text-xs transition-transform ${expandedId === item.id ? "rotate-90" : ""}`}
+            className={`text-xs transition-transform duration-200 inline-block ${
+              expandedId === item.id ? "rotate-90" : ""
+            }`}
           >
             ▶
           </span>
@@ -157,13 +173,30 @@ export default function EventsPage() {
     {
       key: "recurrence_rule",
       label: "Recurrence",
-      render: (value: string) => {
-        if (!value) return <span className="text-gray-400 text-xs">—</span>;
-        const opt = RECURRENCE_OPTIONS.find((o) => o.value === value);
+      render: (value: string, item: any) => {
+        const isSaving = savingRecurrenceId === item.id;
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
-            {opt?.label ?? value}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={value ?? ""}
+              disabled={isSaving}
+              onChange={(e) => handleRecurrenceChange(item, e.target.value)}
+              className={`text-xs border rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition-colors ${
+                value
+                  ? "border-purple-200 bg-purple-50 text-purple-700"
+                  : "border-gray-200 bg-white text-gray-500"
+              } disabled:opacity-50 disabled:cursor-wait`}
+            >
+              {RECURRENCE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {isSaving && (
+              <span className="text-xs text-gray-400 animate-pulse">Menyimpan...</span>
+            )}
+          </div>
         );
       },
     },
@@ -197,44 +230,37 @@ export default function EventsPage() {
               </span>
             )}
           </h3>
-          <div className="flex items-center gap-3">
-            {genResult && (
-              <span
-                className={`text-xs ${
-                  genResult.startsWith("⚠") ? "text-amber-600" : "text-green-600"
-                }`}
-              >
-                {genResult}
+          {occurrences.length > 0 && (
+            <div className="flex items-center gap-3 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-gray-200 inline-block" />
+                Aktif
               </span>
-            )}
-            <button
-              onClick={() => handleGenerate(item)}
-              disabled={generatingId === item.id}
-              className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:text-blue-600 disabled:opacity-50 transition-colors"
-            >
-              {generatingId === item.id
-                ? "Generating..."
-                : item.recurrence_rule
-                ? "Generate Occurrences"
-                : "Create Occurrence"}
-            </button>
-          </div>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-200 inline-block" />
+                Dibatalkan
+              </span>
+            </div>
+          )}
         </div>
 
         {loadingOcc ? (
-          <p className="text-xs text-gray-400 py-2">Memuat...</p>
+          <div className="flex items-center gap-2 py-3">
+            <div className="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+            <p className="text-xs text-gray-400">Memuat occurrences...</p>
+          </div>
         ) : occurrences.length === 0 ? (
           <p className="text-xs text-gray-400 py-2">
-            Belum ada occurrence. Klik "
-            {item.recurrence_rule ? "Generate Occurrences" : "Create Occurrence"}
-            " untuk membuat.
+            {item.recurrence_rule
+              ? "Occurrences akan dibuat otomatis saat recurrence diatur."
+              : "Atur recurrence pada kolom di atas untuk membuat jadwal berulang."}
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {occurrences.map((occ) => (
               <div
                 key={occ.id}
-                className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs ${
+                className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs transition-colors ${
                   occ.is_cancelled
                     ? "border-red-100 bg-red-50 text-red-400 line-through"
                     : "border-gray-200 bg-white text-gray-700"
@@ -251,7 +277,7 @@ export default function EventsPage() {
                 <button
                   onClick={() => toggleCancelOccurrence(occ, item.id)}
                   title={occ.is_cancelled ? "Pulihkan" : "Batalkan"}
-                  className={`ml-2 text-xs rounded px-1 hover:opacity-80 ${
+                  className={`ml-2 text-xs rounded px-1 hover:opacity-80 transition-opacity ${
                     occ.is_cancelled ? "text-green-500" : "text-red-400"
                   }`}
                 >
@@ -306,8 +332,8 @@ export default function EventsPage() {
   ];
 
   // ── CRUD handlers ────────────────────────────────────────────────
-  const handleAdd    = () => { setEditItem(null); setIsModalOpen(true); };
-  const handleEdit   = (item: any) => { setEditItem(item); setIsModalOpen(true); };
+  const handleAdd  = () => { setEditItem(null); setIsModalOpen(true); };
+  const handleEdit = (item: any) => { setEditItem(item); setIsModalOpen(true); };
 
   const handleDelete = async (id: string | number) => {
     if (!confirm("Yakin ingin menghapus event ini? Semua occurrence-nya akan ikut terhapus.")) return;
@@ -318,6 +344,7 @@ export default function EventsPage() {
 
   const handleSubmit = async (data: Record<string, string>) => {
     setIsSubmitting(true);
+
     const payload = {
       event_name:          data.event_name,
       event_type:          data.event_type          || null,
@@ -330,11 +357,36 @@ export default function EventsPage() {
       recurrence_rule:     data.recurrence_rule     || null,
       recurrence_end_date: data.recurrence_end_date || null,
     };
-    const { error } = editItem
-      ? await supabase.from("events").update(payload as TablesUpdate<"events">).eq("id", editItem.id)
-      : await supabase.from("events").insert(payload as TablesInsert<"events">);
-    if (error) alert(`Gagal menyimpan: ${error.message}`);
-    else { setIsModalOpen(false); setEditItem(null); triggerRefresh(); }
+
+    let savedItem: any = null;
+
+    if (editItem) {
+      const { data: updated, error } = await supabase
+        .from("events")
+        .update(payload as TablesUpdate<"events">)
+        .eq("id", editItem.id)
+        .select()
+        .single();
+      if (error) { alert(`Gagal menyimpan: ${error.message}`); setIsSubmitting(false); return; }
+      savedItem = updated;
+    } else {
+      const { data: inserted, error } = await supabase
+        .from("events")
+        .insert(payload as TablesInsert<"events">)
+        .select()
+        .single();
+      if (error) { alert(`Gagal menyimpan: ${error.message}`); setIsSubmitting(false); return; }
+      savedItem = inserted;
+    }
+
+    // Auto-generate occurrences if a recurrence rule is set
+    if (savedItem?.recurrence_rule) {
+      await generateOccurrences(savedItem);
+    }
+
+    setIsModalOpen(false);
+    setEditItem(null);
+    triggerRefresh();
     setIsSubmitting(false);
   };
 
@@ -351,8 +403,22 @@ export default function EventsPage() {
       recurrence_rule:     row.recurrence_rule?.trim()     || null,
       recurrence_end_date: row.recurrence_end_date?.trim() || null,
     }));
-    const { error } = await supabase.from("events").insert(payload);
+
+    const { data: inserted, error } = await supabase
+      .from("events")
+      .insert(payload)
+      .select();
+
     if (error) throw new Error(error.message);
+
+    // Auto-generate occurrences for all imported events that have a recurrence rule
+    if (inserted) {
+      await Promise.all(
+        inserted
+          .filter((ev: any) => ev.recurrence_rule)
+          .map((ev: any) => generateOccurrences(ev))
+      );
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────
@@ -381,12 +447,12 @@ export default function EventsPage() {
         onDelete={handleDelete}
         onImport={handleImport}
         refreshTrigger={refreshTrigger}
-        renderExpandedRow={renderExpandedRow}  // ← pass to MasterDataTable
+        renderExpandedRow={renderExpandedRow}
       />
 
       <ModalForm
         isOpen={isModalOpen}
-      onClose={() => { setIsModalOpen(false); setEditItem(null); }}
+        onClose={() => { setIsModalOpen(false); setEditItem(null); }}
         title={editItem ? "Edit Event" : "Tambah Event"}
         fields={fields}
         onSubmit={handleSubmit}

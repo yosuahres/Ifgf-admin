@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { logout } from "@/lib/supabase/logout";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { createClient } from "@/lib/supabase/client";
+import LogoutConfirmModal from "@/components/LogoutConfirmModal"; 
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -16,6 +17,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const [user, setUser] = useState<{ full_name: string; role: string } | null>(null);
   const [open, setOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -55,7 +57,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
     setOpen(false);
   }, [pathname]);
 
-  const handleLogout = async () => {
+  const handleLogoutConfirmed = async () => {
+    setShowLogoutModal(false);
     await logout();
     window.location.href = "/login";
   };
@@ -70,75 +73,85 @@ export default function Header({ onMenuClick }: HeaderProps) {
     : "";
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 px-6 h-14 flex items-center justify-between shrink-0">
-      <div className="flex items-center gap-3">
-        {/* Only render the hamburger after mount to avoid SSR/client mismatch */}
-        {mounted && isMobile && (
-          <button
-            onClick={onMenuClick}
-            className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
-            aria-label="Toggle menu"
-          >
-            <Menu size={18} />
-          </button>
-        )}
-        <span className="font-semibold text-gray-900 text-xl">IFGF Batam Control</span>
-      </div>
+    <>
+      <header className="w-full bg-white border-b border-gray-200 px-6 h-14 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          {mounted && isMobile && (
+            <button
+              onClick={onMenuClick}
+              className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
+              aria-label="Toggle menu"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+          <span className="font-semibold text-gray-900 text-xl">IFGF Batam Control</span>
+        </div>
 
-      {user && (
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setOpen((prev) => !prev)}
-            className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center hover:ring-2 hover:ring-blue-300 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            aria-label="Profile menu"
-          >
-            <span className="text-xs font-semibold text-blue-700 leading-none">
-              {initials}
-            </span>
-          </button>
+        {user && (
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setOpen((prev) => !prev)}
+              className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center hover:ring-2 hover:ring-blue-300 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              aria-label="Profile menu"
+            >
+              <span className="text-xs font-semibold text-blue-700 leading-none">
+                {initials}
+              </span>
+            </button>
 
-          {open && (
-            <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                    <span className="text-xs font-semibold text-blue-700 leading-none">
-                      {initials}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate leading-tight">
-                      {user.full_name}
-                    </p>
-                    <p className="text-[0.6rem] text-gray-400 capitalize">{user.role}</p>
+            {open && (
+              <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold text-blue-700 leading-none">
+                        {initials}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate leading-tight">
+                        {user.full_name}
+                      </p>
+                      <p className="text-[0.6rem] text-gray-400 capitalize">{user.role}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-1">
-                <a
-                  href="/settings"
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    pathname === "/settings"
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Settings size={14} className="shrink-0" />
-                  Settings
-                </a>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <LogOut size={14} className="shrink-0" />
-                  Sign out
-                </button>
+                <div className="p-1">
+                  <a
+                    href="/settings"
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      pathname === "/settings"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <Settings size={14} className="shrink-0" />
+                    Settings
+                  </a>
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      setShowLogoutModal(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut size={14} className="shrink-0" />
+                    Sign out
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-    </header>
+            )}
+          </div>
+        )}
+      </header>
+
+      <LogoutConfirmModal
+        open={showLogoutModal}
+        onConfirm={handleLogoutConfirmed}
+        onCancel={() => setShowLogoutModal(false)}
+      />
+    </>
   );
 }
