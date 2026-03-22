@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "biome check",
     "format": "biome format --write",
-    "prepare": "husky"
+    "prepare": "husky",
+    "gen:types": "npx supabase gen types typescript --project-id hedjynwphxepvepgncys --schema public > src/types/database.types.ts "
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -36,6 +37,7 @@
     "@types/react-dom": "^19",
     "husky": "^9.1.7",
     "lint-staged": "^16.3.3",
+    "supabase": "^2.83.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

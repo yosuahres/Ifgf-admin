@@ -9,7 +9,7 @@ interface ModalFormProps {
   fields: {
     name: string;
     label: string;
-    type: "text" | "email" | "password" | "select" | "textarea" | "date" | "time";
+    type: "text" | "email" | "password" | "select" | "textarea" | "date" | "time" | "number";
     options?: { value: string; label: string }[];
     required?: boolean;
     placeholder?: string;
@@ -140,6 +140,22 @@ export default function ModalForm({
                   placeholder={field.placeholder}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   rows={4}
+                  required={field.required}
+                />
+
+              ) : field.type === "number" ? (
+                <input
+                  type="number"
+                  min={0}
+                  value={formData[field.name] ?? ""}
+                  onChange={(e) =>
+                    handleInputChange(
+                      field.name,
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                  placeholder={field.placeholder}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required={field.required}
                 />
 

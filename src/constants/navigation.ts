@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 
 export type NavItem = {
-  href?: string;           // optional — parent items with children don't need href
+  href?: string;           
   label: string;
   icon: LucideIcon;
-  children?: Omit<NavItem, "children">[];  // sub-items
+  children?: Omit<NavItem, "children">[];  
 };
 
 export const adminNav: NavItem[] = [
@@ -56,8 +56,15 @@ export const userNav: NavItem[] = [
   { href: "/user/persembahan", label: "Persembahan", icon: BookOpen },
 ];
 
+export const usherNav: NavItem[] = [
+  { href: "/usher", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/usher/attendance", label: "Attendance", icon: Calendar },
+  { href: "/usher/attendance/history", label: "History", icon: BookOpen },
+];
+
 export const navByRole: Record<string, NavItem[]> = {
   admin: adminNav,
   leader: leaderNav,
   user: userNav,
+  usher: usherNav,
 };

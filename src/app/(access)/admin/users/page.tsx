@@ -18,11 +18,13 @@ const USERS_SCHEMA: ColumnSchema[] = [
   { key: "role",      label: "Role",             type: "string", required: true },
 ];
 
+
 const ROLE_OPTIONS = [
   { value: "admin",   label: "Admin" }, //gembala
   { value: "pastor",  label: "Pastor" }, //dibawah gembala
   { value: "leader",  label: "Leader" }, //icare-leader, and other leader
-  { value: "user",  label: "User" }, //finance dll.
+  { value: "user",  label: "Finance" }, //finance dll.
+  { value: "usher", label: "Usher" }, //fallback for invalid role values
 ];
 
 export default function UsersPage() {
@@ -42,7 +44,8 @@ export default function UsersPage() {
           value === "admin"  ? "bg-red-100 text-red-800"    :
           value === "pastor" ? "bg-blue-100 text-blue-800"  :
           value === "leader" ? "bg-yellow-100 text-yellow-800" :
-                               "bg-green-100 text-green-800"
+          value === "user"   ? "bg-green-100 text-green-800" :
+                               "bg-gray-100 text-gray-800" 
         }`}>
           {value?.charAt(0).toUpperCase() + value?.slice(1)}
         </span>

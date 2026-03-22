@@ -15,7 +15,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { fetchFromBackend } from "../utils/api";
 import { exportToExcel } from "../utils/exportutils";
 import type { ColumnSchema } from "../utils/exportutils";
@@ -42,6 +42,11 @@ interface MasterDataTableProps<T = any> {
    * e.g. after a successful edit or delete.
    */
   refreshTrigger?: number;
+  /**
+   * Optional renderer for an expanded row below each data row.
+   * Return null to render nothing (row stays collapsed).
+   */
+  renderExpandedRow?: (item: T) => React.ReactNode;
 }
 
 export default function MasterDataTable<T = any>({
@@ -55,6 +60,7 @@ export default function MasterDataTable<T = any>({
   onImport,
   onItemsChange,
   refreshTrigger = 0,
+  renderExpandedRow,
 }: MasterDataTableProps<T>) {
   const [items, setItems] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
@@ -111,7 +117,7 @@ export default function MasterDataTable<T = any>({
     } finally {
       setLoading(false);
     }
-  }, [endpoint, page, limit, debouncedSearch, importKey, refreshTrigger]); // ← refreshTrigger added
+  }, [endpoint, page, limit, debouncedSearch, importKey, refreshTrigger]);
 
   useEffect(() => {
     loadData();
@@ -251,36 +257,59 @@ export default function MasterDataTable<T = any>({
                   </td>
                 </tr>
               ) : (
-                items.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => setSelected(selected?.id === item.id ? null : item)}
-                    className={`cursor-pointer ${
-                      selected?.id === item.id ? "bg-blue-50" : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <td
-                      className={`sticky left-0 z-10 border-r border-gray-200 p-2 text-center ${
-                        selected?.id === item.id ? "bg-blue-50" : "bg-white"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected?.id === item.id}
-                        readOnly
-                        className="accent-blue-600"
-                      />
-                    </td>
-                    {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        className="border-r border-gray-200 px-4 py-3 text-sm text-gray-700 whitespace-nowrap truncate"
+                items.map((item) => {
+                  const expandedContent = renderExpandedRow?.(item);
+                  const isExpanded = expandedContent !== null && expandedContent !== undefined;
+
+                  return (
+                    <Fragment key={item.id}>
+                      <tr
+                        onClick={() => setSelected(selected?.id === item.id ? null : item)}
+                        className={`cursor-pointer ${
+                          selected?.id === item.id ? "bg-blue-50" : "hover:bg-gray-50"
+                        }`}
                       >
-                        {col.render ? col.render(item[col.key], item) : item[col.key] || "-"}
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                        <td
+                          className={`sticky left-0 z-10 border-r border-gray-200 p-2 text-center ${
+                            selected?.id === item.id ? "bg-blue-50" : "bg-white"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected?.id === item.id}
+                            readOnly
+                            className="accent-blue-600"
+                          />
+                        </td>
+                        {columns.map((col) => (
+                          <td
+                            key={col.key}
+                            className="border-r border-gray-200 px-4 py-3 text-sm text-gray-700 whitespace-nowrap truncate"
+                          >
+                            {col.render
+                              ? col.render(item[col.key], item)
+                              : item[col.key] || "-"}
+                          </td>
+                        ))}
+                      </tr>
+
+                      {/* Expanded row — only rendered when renderExpandedRow returns content */}
+                      {isExpanded && (
+                        <tr key={`${item.id}-expanded`}>
+                          {/* Sticky checkbox column — keep it consistent */}
+                          <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200" />
+                          {/* Expanded content spans all data columns */}
+                          <td
+                            colSpan={columns.length}
+                            className="p-0 border-b border-gray-200"
+                          >
+                            {expandedContent}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
