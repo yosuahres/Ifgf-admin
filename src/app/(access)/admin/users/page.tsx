@@ -1,6 +1,6 @@
 // app/(access)/admin/users/page.tsx
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import MasterDataTable from "@/components/MasterDataTable";
 import ModalForm from "@/components/ModalForm";
 import { exportTemplate } from "@/utils/exportutils";
@@ -10,25 +10,22 @@ import type { Database } from "@/types/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-// user_id must be a valid Supabase auth UUID — import only works for
-// pre-existing auth users whose profiles haven't been created yet.
 const USERS_SCHEMA: ColumnSchema[] = [
   { key: "id",        label: "User ID (UUID)",  type: "string", required: true },
   { key: "full_name", label: "Full Name",        type: "string", required: true },
   { key: "role",      label: "Role",             type: "string", required: true },
 ];
 
-
 const ROLE_OPTIONS = [
-  { value: "admin",   label: "Admin" }, //gembala
-  { value: "pastor",  label: "Pastor" }, //dibawah gembala
-  { value: "leader",  label: "Leader" }, //icare-leader, and other leader
-  { value: "user",  label: "Finance" }, //finance dll.
-  { value: "usher", label: "Usher" }, //fallback for invalid role values
+  { value: "admin",   label: "Admin" },
+  { value: "pastor",  label: "Pastor" },
+  { value: "leader",  label: "Leader" },
+  { value: "user",    label: "Finance" },
+  { value: "usher",   label: "Usher" },
 ];
 
 export default function UsersPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen]   = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const supabase = createClient();
@@ -41,11 +38,11 @@ export default function UsersPage() {
       label: "Role",
       render: (value: string) => (
         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-          value === "admin"  ? "bg-red-100 text-red-800"    :
-          value === "pastor" ? "bg-blue-100 text-blue-800"  :
+          value === "admin"  ? "bg-red-100 text-red-800"       :
+          value === "pastor" ? "bg-blue-100 text-blue-800"     :
           value === "leader" ? "bg-yellow-100 text-yellow-800" :
-          value === "user"   ? "bg-green-100 text-green-800" :
-                               "bg-gray-100 text-gray-800" 
+          value === "user"   ? "bg-green-100 text-green-800"   :
+                               "bg-gray-100 text-gray-800"
         }`}>
           {value?.charAt(0).toUpperCase() + value?.slice(1)}
         </span>
@@ -54,42 +51,72 @@ export default function UsersPage() {
     {
       key: "updated_at",
       label: "Last Updated",
-      render: (value: string) => value ? new Date(value).toLocaleDateString() : "Never",
+      render: (value: string) =>
+        value ? new Date(value).toLocaleDateString() : "Never",
     },
   ];
 
+  // Fields now include email + password for full auth-user creation
   const fields = [
     {
-      name: "user_id", label: "User ID (dari Supabase Auth)", type: "text" as const,
-      required: true, placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      name: "email",
+      label: "Email",
+      type: "text" as const,
+      required: true,
+      placeholder: "pengguna@gereja.org",
     },
     {
-      name: "full_name", label: "Full Name", type: "text" as const,
-      required: true, placeholder: "Nama lengkap",
+      name: "password",
+      label: "Password",
+      type: "password" as const,   // ModalForm must render <input type="password">
+      required: true,
+      placeholder: "Minimal 8 karakter",
     },
     {
-      name: "role", label: "Role", type: "select" as const,
-      required: true, options: ROLE_OPTIONS,
+      name: "full_name",
+      label: "Full Name",
+      type: "text" as const,
+      required: true,
+      placeholder: "Nama lengkap",
+    },
+    {
+      name: "role",
+      label: "Role",
+      type: "select" as const,
+      required: true,
+      options: ROLE_OPTIONS,
     },
   ];
 
+  // Calls our server-side API route — no service key in the browser
   const handleSubmit = async (data: Record<string, string>) => {
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("profiles").insert({
-        id:        data.user_id,
-        full_name: data.full_name,
-        role:      data.role as Profile["role"],
+      const res = await fetch("/api/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email:     data.email.trim().toLowerCase(),
+          password:  data.password,
+          full_name: data.full_name.trim(),
+          role:      data.role,
+        }),
       });
-      if (error) alert(`Gagal menyimpan: ${error.message}`);
-      else setIsModalOpen(false);
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(`Gagal membuat user: ${json.error}`);
+        return;
+      }
+
+      setIsModalOpen(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Bulk-create profiles for existing auth users
-  // The `id` column must match a real auth.users UUID
+  // Bulk-import: still expects pre-existing auth UUIDs (unchanged behaviour)
   const handleImport = async (rows: Record<string, any>[]) => {
     const payload = rows.map((row) => ({
       id:        row.id?.trim(),
@@ -97,13 +124,12 @@ export default function UsersPage() {
       role:      row.role?.trim().toLowerCase() || "user",
     }));
 
-    // Validate roles
-    const validRoles = new Set(["admin", "pastor", "leader", "user"]);
+    const validRoles = new Set(["admin", "pastor", "leader", "user", "usher"]);
     const invalidRows = payload.filter((r) => !validRoles.has(r.role));
     if (invalidRows.length > 0) {
       throw new Error(
-        `Invalid role value(s): ${invalidRows.map((r) => `"${r.role}"`).join(", ")}. ` +
-        `Allowed: admin, pastor, leader, user.`
+        `Role tidak valid: ${invalidRows.map((r) => `"${r.role}"`).join(", ")}. ` +
+        `Diizinkan: admin, pastor, leader, user, usher.`,
       );
     }
 
@@ -140,10 +166,10 @@ export default function UsersPage() {
       <ModalForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Tambah User Profile"
+        title="Tambah User Baru"
         fields={fields}
         onSubmit={handleSubmit}
-        submitText="Tambah User"
+        submitText="Buat User"
         isLoading={isSubmitting}
       />
     </div>
