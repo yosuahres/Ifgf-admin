@@ -16,13 +16,15 @@ export async function fetchFromBackend(url: string) {
     const searchParams = urlObj.searchParams;
 
     const tableName = pathname.replace("/api/", "").replace(/-/g, "_");
-
-    // Build query with joins where needed
     let query =
       tableName === "icare_groups"
         ? supabase
             .from("icare_groups")
             .select("*, jemaat(nama_lengkap)", { count: "exact" })
+        : tableName === "profiles"                                    // 👈 add this
+        ? supabase
+            .from("profiles")
+            .select("*, jemaat!jemaat_user_id_fkey(id, nama_lengkap)", { count: "exact" })
         : supabase.from(tableName as any).select("*", { count: "exact" });
 
     // Apply pagination
@@ -49,6 +51,25 @@ export async function fetchFromBackend(url: string) {
     }
 
     const { data, error, count } = await query;
+    
+      if (error) throw error;
+      console.log("Raw profiles row sample:", JSON.stringify(data?.[0], null, 2));
+
+      // Flatten jemaat join for profiles
+      const flatData =
+        tableName === "profiles"
+          ? (data as any[]).map((row) => ({
+              ...row,
+              jemaat_nama: row.jemaat?.[0]?.nama_lengkap ?? null,  // 👈 [0] instead of direct access
+              jemaat_id:   row.jemaat?.[0]?.id ?? null,            // 👈 [0] here too
+              jemaat:      undefined,
+            }))
+          : data;
+
+      return {
+        data: flatData || [],   // 👈 changed from data to flatData
+        total: count || 0,
+      };
 
     if (error) throw error;
 

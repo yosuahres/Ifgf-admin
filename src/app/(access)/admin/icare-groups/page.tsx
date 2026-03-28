@@ -22,35 +22,78 @@ const ICARE_SCHEMA: ColumnSchema[] = [
 ];
 
 export default function IcareGroupsPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<IcareRow | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([]);
-  const [refreshTrigger, setRefreshTrigger] = useState(0); 
+  const [isModalOpen,    setIsModalOpen]    = useState(false);
+  const [editItem,       setEditItem]       = useState<IcareRow | null>(null);
+  const [isSubmitting,   setIsSubmitting]   = useState(false);
+  const [leaderOptions,  setLeaderOptions]  = useState<LeaderOption[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const supabase = createClient();
-
   const triggerRefresh = () => setRefreshTrigger((k) => k + 1);
 
   useEffect(() => {
     const loadLeaders = async () => {
-      const { data } = await supabase
+      /**
+       * Only jemaat whose linked profiles row has role = 'leader' may be
+       * assigned as an iCare group leader.
+       *
+       * Join path:  jemaat.user_id → profiles.id  (profiles.role = 'leader')
+       *
+       * We use the Supabase PostgREST foreign-key join syntax:
+       *   jemaat!inner( profiles!inner( role ) )
+       * but since jemaat has user_id → profiles(id) we navigate via the FK name.
+       */
+      const { data, error } = await supabase
         .from("jemaat")
-        .select("id, nama_lengkap")
+        .select(
+          `id,
+           nama_lengkap,
+           profiles:user_id (
+             id,
+             role
+           )`,
+        )
         .order("nama_lengkap");
-      setLeaderOptions(
-        (data ?? []).map((j) => ({ value: j.id, label: j.nama_lengkap })),
+
+      if (error) {
+        console.error("Gagal memuat leader options:", error.message);
+        return;
+      }
+
+      // Filter client-side to only jemaat whose profile role is 'leader'
+      const leaders = (data ?? []).filter(
+        (j: any) => j.profiles?.role === "leader",
       );
+
+      setLeaderOptions([
+        { value: "", label: "— Pilih Leader —" },
+        ...leaders.map((j: any) => ({ value: j.id, label: j.nama_lengkap })),
+      ]);
     };
+
     loadLeaders();
-  }, [supabase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const columns = [
     { key: "nama_icare", label: "Nama iCare" },
     {
       key: "leader_id",
       label: "Leader",
-      render: (_: unknown, item: IcareRow) => item.jemaat?.nama_lengkap ?? "-",
+      render: (_: unknown, item: IcareRow) => {
+        if (!item.jemaat?.nama_lengkap) {
+          return (
+            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+              Belum ada leader
+            </span>
+          );
+        }
+        return (
+          <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full font-medium">
+            {item.jemaat.nama_lengkap}
+          </span>
+        );
+      },
     },
     { key: "hari_pertemuan", label: "Hari Pertemuan" },
     {
@@ -77,10 +120,10 @@ export default function IcareGroupsPage() {
     },
     {
       name: "leader_id",
-      label: "Leader",
+      label: "Leader (role: Leader)",
       type: "select" as const,
       required: false,
-      options: [{ value: "", label: "— Pilih Leader —" }, ...leaderOptions],
+      options: leaderOptions,
     },
     {
       name: "hari_pertemuan",
@@ -121,46 +164,50 @@ export default function IcareGroupsPage() {
 
   const handleDelete = async (id: string | number) => {
     if (!confirm("Yakin ingin menghapus iCare group ini?")) return;
-    const { error } = await supabase.from("icare_groups").delete().eq("id", id as string);
+    const { error } = await supabase
+      .from("icare_groups")
+      .delete()
+      .eq("id", id as string);
     if (error) alert(`Gagal menghapus: ${error.message}`);
-    else triggerRefresh(); // ← re-fetch table
+    else triggerRefresh();
   };
 
   const handleSubmit = async (data: Record<string, string | null>) => {
     setIsSubmitting(true);
     const payload = {
-      nama_icare: data.nama_icare as string,
-      leader_id: data.leader_id || null,
-      hari_pertemuan: data.hari_pertemuan || null,
-      jam_pertemuan: data.jam_pertemuan || null,
+      nama_icare:       data.nama_icare as string,
+      leader_id:        data.leader_id  || null,
+      hari_pertemuan:   data.hari_pertemuan   || null,
+      jam_pertemuan:    data.jam_pertemuan    || null,
       lokasi_pertemuan: data.lokasi_pertemuan || null,
-      deskripsi: data.deskripsi || null,
+      deskripsi:        data.deskripsi        || null,
     };
+
     const { error } = editItem
       ? await supabase.from("icare_groups").update(payload).eq("id", editItem.id)
       : await supabase.from("icare_groups").insert([payload]);
+
     if (error) {
       alert(`Gagal menyimpan: ${error.message}`);
     } else {
       setIsModalOpen(false);
       setEditItem(null);
-      triggerRefresh(); // ← re-fetch table
+      triggerRefresh();
     }
     setIsSubmitting(false);
   };
 
   const handleImport = async (rows: Record<string, any>[]) => {
     const payload = rows.map((row) => ({
-      nama_icare: row.nama_icare,
-      hari_pertemuan: row.hari_pertemuan?.trim() || null,
-      jam_pertemuan: row.jam_pertemuan?.trim() || null,
+      nama_icare:       row.nama_icare,
+      hari_pertemuan:   row.hari_pertemuan?.trim()   || null,
+      jam_pertemuan:    row.jam_pertemuan?.trim()    || null,
       lokasi_pertemuan: row.lokasi_pertemuan?.trim() || null,
-      deskripsi: row.deskripsi?.trim() || null,
-      leader_id: null,
+      deskripsi:        row.deskripsi?.trim()        || null,
+      leader_id:        null,
     }));
     const { error } = await supabase.from("icare_groups").insert(payload);
     if (error) throw new Error(error.message);
-    // MasterDataTable handles its own importKey refresh internally
   };
 
   return (
@@ -187,7 +234,7 @@ export default function IcareGroupsPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onImport={handleImport}
-        refreshTrigger={refreshTrigger} // ← drives reload after edit/delete
+        refreshTrigger={refreshTrigger}
       />
 
       <ModalForm
@@ -195,7 +242,7 @@ export default function IcareGroupsPage() {
         onClose={() => { setIsModalOpen(false); setEditItem(null); }}
         title={editItem ? "Edit iCare Group" : "Tambah iCare Group"}
         fields={fields}
-        initialData={editItem}
+        initialData={editItem ?? undefined}
         onSubmit={handleSubmit}
         submitText={editItem ? "Simpan Perubahan" : "Tambah Group"}
         isLoading={isSubmitting}

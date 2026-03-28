@@ -1,6 +1,6 @@
-// app/(access)/admin/users/page.tsx
+// admin/users/page.tsx
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MasterDataTable from "@/components/MasterDataTable";
 import ModalForm from "@/components/ModalForm";
 import { exportTemplate } from "@/utils/exportutils";
@@ -24,15 +24,72 @@ const ROLE_OPTIONS = [
   { value: "usher",   label: "Usher" },
 ];
 
+type ProfileWithJemaat = Profile & {
+  jemaat_nama?: string | null;
+  jemaat_id?: string | null;
+};
+
 export default function UsersPage() {
-  const [isModalOpen, setIsModalOpen]   = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isModalOpen,    setIsModalOpen]    = useState(false);
+  const [editItem,       setEditItem]       = useState<ProfileWithJemaat | null>(null);
+  const [isSubmitting,   setIsSubmitting]   = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [jemaatOptions,  setJemaatOptions]  = useState<{ value: string; label: string }[]>([]);
+  const [linkedJemaatId, setLinkedJemaatId] = useState("");
 
   const supabase = createClient();
+  const triggerRefresh = () => setRefreshTrigger((k) => k + 1);
+
+  // Load jemaat names that are not yet linked to any user (or are linked to the current editItem)
+  useEffect(() => {
+    const loadJemaat = async () => {
+      const { data, error } = await supabase
+        .from("jemaat")
+        .select("id, nama_lengkap, user_id")
+        .order("nama_lengkap");
+
+      if (error) { console.error(error); return; }
+
+      const filtered = (data ?? []).filter(
+        (j) => j.user_id === null || (editItem && j.user_id === editItem.id),
+      );
+
+      setJemaatOptions([
+        { value: "", label: "— Tidak ditautkan —" },
+        ...filtered.map((j) => ({ value: j.id, label: j.nama_lengkap })),
+      ]);
+    };
+
+    loadJemaat();
+  }, [editItem, supabase]);
+
+  useEffect(() => {
+    if (!editItem) { setLinkedJemaatId(""); return; }
+    if (editItem.jemaat_id !== undefined) {
+      setLinkedJemaatId(editItem.jemaat_id ?? "");
+      return;
+    }
+    supabase
+      .from("jemaat")
+      .select("id")
+      .eq("user_id", editItem.id)
+      .maybeSingle()
+      .then(({ data }) => setLinkedJemaatId(data?.id ?? ""));
+  }, [editItem, supabase]);
 
   const columns = [
     { key: "full_name", label: "Full Name" },
-    { key: "id",        label: "User ID" },
+    { key: "email",     label: "Email" },
+    {
+      key: "jemaat_nama",
+      label: "Linked Jemaat",
+      render: (value: string) =>
+        value ? (
+          <span className="text-sm text-gray-800">{value}</span>
+        ) : (
+          <span className="text-xs text-gray-400 italic">— Tidak ditautkan —</span>
+        ),
+    },
     {
       key: "role",
       label: "Role",
@@ -52,11 +109,10 @@ export default function UsersPage() {
       key: "updated_at",
       label: "Last Updated",
       render: (value: string) =>
-        value ? new Date(value).toLocaleDateString() : "Never",
+        value ? new Date(value).toLocaleDateString("id-ID") : "Never",
     },
   ];
 
-  // Fields now include email + password for full auth-user creation
   const fields = [
     {
       name: "email",
@@ -67,10 +123,10 @@ export default function UsersPage() {
     },
     {
       name: "password",
-      label: "Password",
-      type: "password" as const,   // ModalForm must render <input type="password">
-      required: true,
-      placeholder: "Minimal 8 karakter",
+      label: editItem ? "Password Baru" : "Password",
+      type: "password" as const,
+      required: !editItem,
+      placeholder: editItem ? "Kosongkan jika tidak diubah" : "Minimal 8 karakter",
     },
     {
       name: "full_name",
@@ -86,37 +142,108 @@ export default function UsersPage() {
       required: true,
       options: ROLE_OPTIONS,
     },
+    {
+      name: "jemaat_id",
+      label: "Tautkan ke Jemaat",
+      type: "select" as const,
+      required: false,
+      options: jemaatOptions,
+    },
   ];
 
-  // Calls our server-side API route — no service key in the browser
+  const handleAdd = () => {
+    setEditItem(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: ProfileWithJemaat) => {
+    setEditItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string | number) => {
+    if (!confirm("Yakin ingin menghapus user ini?")) return;
+
+    const res = await fetch("/api/users/delete", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      alert(`Gagal menghapus: ${json.error}`);
+    } else {
+      triggerRefresh();
+    }
+  };
+
   const handleSubmit = async (data: Record<string, string>) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/users/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email:     data.email.trim().toLowerCase(),
-          password:  data.password,
-          full_name: data.full_name.trim(),
-          role:      data.role,
-        }),
-      });
+      let userId: string | null = null;
 
-      const json = await res.json();
+      if (editItem) {
+        const res = await fetch("/api/users/update", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id:        editItem.id,
+            email:     data.email.trim().toLowerCase(),
+            password:  data.password || undefined,
+            full_name: data.full_name.trim(),
+            role:      data.role,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) { alert(`Gagal mengupdate: ${json.error}`); return; }
+        userId = editItem.id;
+      } else {
+        const res = await fetch("/api/users/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email:     data.email.trim().toLowerCase(),
+            password:  data.password,
+            full_name: data.full_name.trim(),
+            role:      data.role,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) { alert(`Gagal membuat user: ${json.error}`); return; }
+        userId = json.id ?? json.user?.id ?? null;
+      }
 
-      if (!res.ok) {
-        alert(`Gagal membuat user: ${json.error}`);
-        return;
+      if (userId) {
+        const jemaatId = data.jemaat_id?.trim() || null;
+
+        if (editItem) {
+          await supabase
+            .from("jemaat")
+            .update({ user_id: null })
+            .eq("user_id", userId);
+        }
+
+        if (jemaatId) {
+          const { error: linkError } = await supabase
+            .from("jemaat")
+            .update({ user_id: userId })
+            .eq("id", jemaatId);
+
+          if (linkError) {
+            alert(`User dibuat, tapi gagal menautkan jemaat: ${linkError.message}`);
+          }
+        }
       }
 
       setIsModalOpen(false);
+      setEditItem(null);
+      triggerRefresh();
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Bulk-import: still expects pre-existing auth UUIDs (unchanged behaviour)
   const handleImport = async (rows: Record<string, any>[]) => {
     const payload = rows.map((row) => ({
       id:        row.id?.trim(),
@@ -142,9 +269,7 @@ export default function UsersPage() {
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 mb-1">Users</h1>
-          <p className="text-sm text-gray-500">
-            Kelola profil pengguna dan role akses
-          </p>
+          <p className="text-sm text-gray-500">Kelola profil pengguna dan role akses</p>
         </div>
         <button
           onClick={() => exportTemplate("Users", USERS_SCHEMA)}
@@ -159,17 +284,30 @@ export default function UsersPage() {
         endpoint="/api/profiles"
         columns={columns}
         exportSchema={USERS_SCHEMA}
-        onAdd={() => setIsModalOpen(true)}
+        onAdd={handleAdd}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
         onImport={handleImport}
+        refreshTrigger={refreshTrigger}
       />
 
       <ModalForm
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Tambah User Baru"
+        onClose={() => { setIsModalOpen(false); setEditItem(null); }}
+        title={editItem ? "Edit User" : "Tambah User Baru"}
         fields={fields}
+        initialData={
+          editItem
+            ? {
+                email:     editItem.email ?? "",
+                full_name: editItem.full_name ?? "",
+                role:      editItem.role ?? "",
+                jemaat_id: linkedJemaatId,
+              }
+            : undefined
+        }
         onSubmit={handleSubmit}
-        submitText="Buat User"
+        submitText={editItem ? "Simpan Perubahan" : "Buat User"}
         isLoading={isSubmitting}
       />
     </div>

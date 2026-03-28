@@ -609,18 +609,21 @@ export type Database = {
       }
       profiles: {
         Row: {
+          email: string | null
           full_name: string
           id: string
           role: string | null
           updated_at: string | null
         }
         Insert: {
+          email?: string | null
           full_name: string
           id: string
           role?: string | null
           updated_at?: string | null
         }
         Update: {
+          email?: string | null
           full_name?: string
           id?: string
           role?: string | null
@@ -665,7 +668,18 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_profiles_with_jemaat: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          jemaat_id: string
+          jemaat_nama: string
+          role: string
+          updated_at: string
+        }[]
+      }
     }
     Enums: {
       status_jemaat_type: "aktif" | "tidak aktif" | "pindah" | "meninggal"
