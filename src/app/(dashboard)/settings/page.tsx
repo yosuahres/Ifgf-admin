@@ -1,7 +1,9 @@
+//app/(dashboard)/settings/page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import { User, Lock, CheckCircle, AlertCircle, Eye, EyeOff, Shield, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type Profile = {
   full_name: string;
@@ -68,6 +70,7 @@ function PasswordInput({
 
 export default function SettingsPage() {
   const supabase = createClient();
+  const isMobile = useIsMobile();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -181,7 +184,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top back bar */}
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-2">
+      <div className="max-w-5xl mx-auto px-4 pt-4 pb-2 md:pt-6">
         <button
           onClick={() => window.history.back()}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
@@ -191,32 +194,53 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 pb-12 flex gap-8">
-        {/* ── Sidebar ── */}
-        <aside className="w-56 shrink-0 pt-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Settings</p>
-          <nav className="flex flex-col gap-0.5">
+      {/* Mobile: stacked layout; Desktop: sidebar + content side by side */}
+      <div className="max-w-5xl mx-auto px-4 pb-12 flex flex-col md:flex-row gap-0 md:gap-8">
+
+        {/* ── Nav: horizontal pill tabs on mobile, sidebar on desktop ── */}
+        {isMobile ? (
+          <nav className="flex gap-1 p-1 bg-white border border-gray-200 rounded-xl mb-4 w-full">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                className={`flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors
                   ${activeTab === item.id
-                    ? "bg-blue-50 text-blue-700 border border-blue-100"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                   }`}
               >
-                <span className={activeTab === item.id ? "text-blue-600" : "text-gray-400"}>
-                  {item.icon}
-                </span>
+                <span>{item.icon}</span>
                 {item.label}
               </button>
             ))}
           </nav>
-        </aside>
+        ) : (
+          <aside className="w-56 shrink-0 pt-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Settings</p>
+            <nav className="flex flex-col gap-0.5">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-2.5 w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${activeTab === item.id
+                      ? "bg-blue-50 text-blue-700 border border-blue-100"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
+                >
+                  <span className={activeTab === item.id ? "text-blue-600" : "text-gray-400"}>
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </aside>
+        )}
 
         {/* ── Main content ── */}
-        <main className="flex-1 min-w-0 pt-2 space-y-6">
+        <main className="flex-1 min-w-0 md:pt-2 space-y-6">
 
           {/* PUBLIC PROFILE TAB */}
           {activeTab === "profile" && (
@@ -227,8 +251,8 @@ export default function SettingsPage() {
               </div>
 
               <section className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                <div className="flex items-center gap-3 px-4 md:px-6 py-4 border-b border-gray-100">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                     <User size={16} className="text-blue-600" />
                   </div>
                   <div>
@@ -237,15 +261,15 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="px-6 py-5 space-y-5">
+                <div className="px-4 md:px-6 py-5 space-y-5">
                   {/* Avatar + role badge */}
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
                       {profile?.full_name?.charAt(0).toUpperCase() ?? "?"}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{profile?.full_name}</p>
-                      <p className="text-xs text-gray-400 mb-1.5">{profile?.email}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{profile?.full_name}</p>
+                      <p className="text-xs text-gray-400 mb-1.5 truncate">{profile?.email}</p>
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${roleInfo.color}`}>
                         <Shield size={11} />
                         {roleInfo.label}
@@ -261,6 +285,7 @@ export default function SettingsPage() {
 
                   {/* Form */}
                   <form onSubmit={handleSaveProfile} className="space-y-4">
+                    {/* Single column on mobile, two columns on sm+ */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-gray-700">Full Name</label>
@@ -285,12 +310,13 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    {/* On mobile: toast above button, stacked; on desktop: side by side */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
                       <Toast toast={profileToast} />
                       <button
                         type="submit"
                         disabled={savingProfile}
-                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                        className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                       >
                         {savingProfile && (
                           <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -313,8 +339,8 @@ export default function SettingsPage() {
               </div>
 
               <section className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                <div className="flex items-center gap-3 px-4 md:px-6 py-4 border-b border-gray-100">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                     <Lock size={16} className="text-blue-600" />
                   </div>
                   <div>
@@ -323,7 +349,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="px-6 py-5">
+                <div className="px-4 md:px-6 py-5">
                   <form onSubmit={handleChangePassword} className="space-y-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-medium text-gray-700">New Password</label>
@@ -363,12 +389,12 @@ export default function SettingsPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
                       <Toast toast={passwordToast} />
                       <button
                         type="submit"
                         disabled={savingPassword}
-                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                        className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                       >
                         {savingPassword && (
                           <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -2,13 +2,14 @@
 import {
   Calendar,
   Check,
-  ChevronDown,
-  ChevronUp,
+  ChevronLeft,
+  MapPin,
   Pencil,
   Plus,
   Trash2,
   Users,
   X,
+  FileText,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -42,6 +43,37 @@ type AttendanceEntry = {
 
 type AttendanceMap = Record<string, boolean>;
 
+const MONTH_ID = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return {
+    day: d.getDate(),
+    month: MONTH_ID[d.getMonth()],
+    year: d.getFullYear(),
+    full: d.toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
+  };
+}
+
+function CheckboxRow({ label, checked, onToggle }: { label: string; checked: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left w-full transition-colors ${
+        checked ? "bg-blue-50 border-blue-200 text-blue-800" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+      }`}
+    >
+      <div className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors ${
+        checked ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300"
+      }`}>
+        {checked && <Check size={10} className="text-white" strokeWidth={3} />}
+      </div>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
 export default function IcareMeetingsPage() {
   const [authorized, setAuthorized] = useState(false);
   const [group, setGroup] = useState<IcareGroup | null>(null);
@@ -49,7 +81,6 @@ export default function IcareMeetingsPage() {
   const [members, setMembers] = useState<Jemaat[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
 
-  // New meeting form
   const [showForm, setShowForm] = useState(false);
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
   const [topik, setTopik] = useState("");
@@ -59,12 +90,10 @@ export default function IcareMeetingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [meetingAttendance, setMeetingAttendance] = useState<Record<string, AttendanceEntry[]>>({});
-
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
   const [editAttendanceMap, setEditAttendanceMap] = useState<AttendanceMap>({});
   const [savingAttendance, setSavingAttendance] = useState(false);
@@ -72,11 +101,7 @@ export default function IcareMeetingsPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const role = localStorage.getItem("role");
-    if (role !== "leader") {
-      window.location.href = "/login";
-      return;
-    }
+    if (localStorage.getItem("role") !== "leader") { window.location.href = "/login"; return; }
     setAuthorized(true);
     loadData();
   }, []);
@@ -86,42 +111,33 @@ export default function IcareMeetingsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoadingPage(false); return; }
 
-    const { data: jemaatSelf } = await supabase
-      .from("jemaat").select("id").eq("user_id", user.id).maybeSingle();
-    if (!jemaatSelf) { setLoadingPage(false); return; }
+    const { data: self } = await supabase.from("jemaat").select("id").eq("user_id", user.id).maybeSingle();
+    if (!self) { setLoadingPage(false); return; }
 
-    const { data: groupData } = await supabase
-      .from("icare_groups")
-      .select("id, nama_icare, hari_pertemuan, lokasi_pertemuan")
-      .eq("leader_id", jemaatSelf.id)
-      .maybeSingle();
-    if (!groupData) { setLoadingPage(false); return; }
+    const { data: g } = await supabase
+      .from("icare_groups").select("id, nama_icare, hari_pertemuan, lokasi_pertemuan")
+      .eq("leader_id", self.id).maybeSingle();
+    if (!g) { setLoadingPage(false); return; }
 
-    setGroup(groupData);
-    setLokasi(groupData.lokasi_pertemuan ?? "");
+    setGroup(g);
+    setLokasi(g.lokasi_pertemuan ?? "");
 
     const { data: icareMembers } = await supabase
-      .from("icare_members")
-      .select("jemaat(id, nama_lengkap)")
-      .eq("icare_id", groupData.id)
-      .order("join_date", { ascending: true });
+      .from("icare_members").select("jemaat(id, nama_lengkap)")
+      .eq("icare_id", g.id).order("join_date", { ascending: true });
 
     const membersData: Jemaat[] = (icareMembers ?? [])
-      .map((row: any) => row.jemaat)
-      .filter(Boolean)
+      .map((r: any) => r.jemaat).filter(Boolean)
       .sort((a: Jemaat, b: Jemaat) => a.nama_lengkap.localeCompare(b.nama_lengkap));
 
     setMembers(membersData);
-
     const initMap: AttendanceMap = {};
     membersData.forEach((m) => { initMap[m.id] = false; });
     setAttendance(initMap);
 
     const { data: meetingsData } = await supabase
-      .from("icare_meetings")
-      .select("id, tanggal, topik, jumlah_hadir, catatan, lokasi")
-      .eq("icare_id", groupData.id)
-      .order("tanggal", { ascending: false });
+      .from("icare_meetings").select("id, tanggal, topik, jumlah_hadir, catatan, lokasi")
+      .eq("icare_id", g.id).order("tanggal", { ascending: false });
 
     setMeetings(meetingsData ?? []);
     setLoadingPage(false);
@@ -130,95 +146,38 @@ export default function IcareMeetingsPage() {
   const loadMeetingAttendance = async (meetingId: string) => {
     if (meetingAttendance[meetingId]) return;
     const { data } = await supabase
-      .from("icare_attendance")
-      .select("hadir, keterangan, jemaat(nama_lengkap)")
-      .eq("meeting_id", meetingId)
-      .order("hadir", { ascending: false });
-
+      .from("icare_attendance").select("hadir, keterangan, jemaat(nama_lengkap)")
+      .eq("meeting_id", meetingId).order("hadir", { ascending: false });
     const entries: AttendanceEntry[] = (data ?? []).map((r: any) => ({
-      nama: r.jemaat?.nama_lengkap ?? "—",
-      hadir: r.hadir,
-      keterangan: r.keterangan,
+      nama: r.jemaat?.nama_lengkap ?? "—", hadir: r.hadir, keterangan: r.keterangan,
     }));
     setMeetingAttendance((prev) => ({ ...prev, [meetingId]: entries }));
   };
 
-  const toggleExpand = (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null);
-      setEditingAttendanceId(null);
-      setConfirmDeleteId(null);
-    } else {
-      setExpandedId(id);
-      setConfirmDeleteId(null);
-      loadMeetingAttendance(id);
-    }
-  };
-
-  const toggleAttendance = (id: string) =>
-    setAttendance((prev) => ({ ...prev, [id]: !prev[id] }));
-
-  const selectAll = () => {
-    const all: AttendanceMap = {};
-    members.forEach((m) => { all[m.id] = true; });
-    setAttendance(all);
-  };
-
-  const clearAll = () => {
-    const none: AttendanceMap = {};
-    members.forEach((m) => { none[m.id] = false; });
-    setAttendance(none);
+  const selectMeeting = (id: string) => {
+    setSelectedId(id);
+    setEditingAttendanceId(null);
+    setConfirmDeleteId(null);
+    loadMeetingAttendance(id);
   };
 
   const handleSubmit = async () => {
-    if (!group) return;
-    if (!tanggal) { setFormError("Tanggal wajib diisi."); return; }
-    setFormError("");
-    setSubmitting(true);
-
+    if (!group || !tanggal) { setFormError("Tanggal wajib diisi."); return; }
+    setFormError(""); setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     const jumlah_hadir = Object.values(attendance).filter(Boolean).length;
-
-    const { data: meeting, error: meetingError } = await supabase
-      .from("icare_meetings")
-      .insert({
-        icare_id: group.id,
-        tanggal,
-        topik: topik || null,
-        lokasi: lokasi || null,
-        catatan: catatan || null,
-        jumlah_hadir,
-        created_by: user?.id ?? null,
-      } as any)
-      .select()
-      .single();
-
-    if (meetingError) {
-      setFormError(meetingError.message);
-      setSubmitting(false);
-      return;
-    }
-
+    const { data: meeting, error: mErr } = await supabase.from("icare_meetings").insert({
+      icare_id: group.id, tanggal, topik: topik || null, lokasi: lokasi || null,
+      catatan: catatan || null, jumlah_hadir, created_by: user?.id ?? null,
+    } as any).select().single();
+    if (mErr) { setFormError(mErr.message); setSubmitting(false); return; }
     if (members.length > 0) {
-      const rows = members.map((m) => ({
-        meeting_id: meeting.id,
-        jemaat_id: m.id,
-        hadir: attendance[m.id] ?? false,
-        keterangan: null,
-      }));
-      const { error: attErr } = await supabase.from("icare_attendance").insert(rows as any);
-      if (attErr) {
-        setFormError("Pertemuan tersimpan, tapi gagal simpan kehadiran: " + attErr.message);
-        setSubmitting(false);
-        return;
-      }
+      const rows = members.map((m) => ({ meeting_id: meeting.id, jemaat_id: m.id, hadir: attendance[m.id] ?? false, keterangan: null }));
+      const { error: aErr } = await supabase.from("icare_attendance").insert(rows as any);
+      if (aErr) { setFormError("Pertemuan tersimpan, tapi gagal simpan kehadiran: " + aErr.message); setSubmitting(false); return; }
     }
-
     await loadData();
-    setShowForm(false);
-    setTopik("");
-    setCatatan("");
-    setSubmitting(false);
+    setShowForm(false); setTopik(""); setCatatan(""); setSubmitting(false);
   };
 
   const handleDelete = async (meetingId: string) => {
@@ -228,18 +187,14 @@ export default function IcareMeetingsPage() {
     if (error) { console.error(error.message); setDeletingId(null); setConfirmDeleteId(null); return; }
     setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
     setMeetingAttendance((prev) => { const n = { ...prev }; delete n[meetingId]; return n; });
-    if (expandedId === meetingId) setExpandedId(null);
-    setDeletingId(null);
-    setConfirmDeleteId(null);
+    if (selectedId === meetingId) setSelectedId(null);
+    setDeletingId(null); setConfirmDeleteId(null);
   };
 
-  const startEditAttendance = (meetingId: string) => {
+  const startEdit = (meetingId: string) => {
     const list = meetingAttendance[meetingId] ?? [];
     const map: AttendanceMap = {};
-    members.forEach((m) => {
-      const entry = list.find((a) => a.nama === m.nama_lengkap);
-      map[m.id] = entry?.hadir ?? false;
-    });
+    members.forEach((m) => { map[m.id] = list.find((a) => a.nama === m.nama_lengkap)?.hadir ?? false; });
     setEditAttendanceMap(map);
     setEditingAttendanceId(meetingId);
     setConfirmDeleteId(null);
@@ -247,428 +202,351 @@ export default function IcareMeetingsPage() {
 
   const handleSaveAttendance = async (meetingId: string) => {
     setSavingAttendance(true);
-    const updates = members.map((m) => ({
-      meeting_id: meetingId,
-      jemaat_id: m.id,
-      hadir: editAttendanceMap[m.id] ?? false,
-      keterangan: null,
-    }));
-
-    const { error } = await supabase
-      .from("icare_attendance")
-      .upsert(updates as any, { onConflict: "meeting_id,jemaat_id" });
-
+    const updates = members.map((m) => ({ meeting_id: meetingId, jemaat_id: m.id, hadir: editAttendanceMap[m.id] ?? false, keterangan: null }));
+    const { error } = await supabase.from("icare_attendance").upsert(updates as any, { onConflict: "meeting_id,jemaat_id" });
     if (error) { console.error(error.message); setSavingAttendance(false); return; }
-
     const jumlah_hadir = Object.values(editAttendanceMap).filter(Boolean).length;
     await supabase.from("icare_meetings").update({ jumlah_hadir } as any).eq("id", meetingId);
-
-    const updatedEntries: AttendanceEntry[] = members.map((m) => ({
-      nama: m.nama_lengkap,
-      hadir: editAttendanceMap[m.id] ?? false,
-      keterangan: null,
+    setMeetingAttendance((prev) => ({
+      ...prev,
+      [meetingId]: members.map((m) => ({ nama: m.nama_lengkap, hadir: editAttendanceMap[m.id] ?? false, keterangan: null })),
     }));
-    setMeetingAttendance((prev) => ({ ...prev, [meetingId]: updatedEntries }));
     setMeetings((prev) => prev.map((mt) => mt.id === meetingId ? { ...mt, jumlah_hadir } : mt));
-    setEditingAttendanceId(null);
-    setSavingAttendance(false);
+    setEditingAttendanceId(null); setSavingAttendance(false);
   };
-
-  const presentCount = Object.values(attendance).filter(Boolean).length;
 
   if (!authorized || loadingPage) return null;
 
+  const selectedMeeting = meetings.find((m) => m.id === selectedId) ?? null;
+  const presentCount = Object.values(attendance).filter(Boolean).length;
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+    <div className="h-screen flex flex-col bg-white overflow-hidden">
+
+      {/* Modal: new meeting form */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/25 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col border border-gray-200">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900">Catat Pertemuan Baru</h2>
+              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Tanggal *</label>
+                  <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Lokasi</label>
+                  <input type="text" value={lokasi} onChange={(e) => setLokasi(e.target.value)}
+                    placeholder={group?.lokasi_pertemuan ?? ""}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Topik / Firman</label>
+                <input type="text" value={topik} onChange={(e) => setTopik(e.target.value)}
+                  placeholder="Topik atau judul firman"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Catatan</label>
+                <textarea value={catatan} onChange={(e) => setCatatan(e.target.value)} rows={2}
+                  placeholder="Catatan tambahan..."
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-gray-500">
+                    Kehadiran — <span className="text-blue-600 font-semibold">{presentCount}/{members.length}</span>
+                  </label>
+                  <div className="flex gap-3 text-xs">
+                    <button onClick={() => { const a: AttendanceMap = {}; members.forEach((m) => { a[m.id] = true; }); setAttendance(a); }} className="text-blue-600 hover:underline">Semua</button>
+                    <button onClick={() => { const a: AttendanceMap = {}; members.forEach((m) => { a[m.id] = false; }); setAttendance(a); }} className="text-gray-400 hover:underline">Reset</button>
+                  </div>
+                </div>
+                {members.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-3 bg-gray-50 rounded-lg">Belum ada anggota.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
+                    {members.map((m) => (
+                      <CheckboxRow key={m.id} label={m.nama_lengkap} checked={attendance[m.id] ?? false}
+                        onToggle={() => setAttendance((prev) => ({ ...prev, [m.id]: !prev[m.id] }))} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              {formError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">⚠ {formError}</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Batal</button>
+              <button onClick={handleSubmit} disabled={submitting}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg">
+                {submitting && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                {submitting ? "Menyimpan..." : "Simpan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Page header */}
+      <div className="border-b border-gray-200 px-5 py-3 flex items-center justify-between shrink-0">
         <div>
-          <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">iCare Group</p>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {group ? group.nama_icare : "Grup Tidak Ditemukan"}
-          </h1>
+          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">iCare Group</p>
+          <h1 className="text-sm font-semibold text-gray-900">{group?.nama_icare ?? "Grup Tidak Ditemukan"}</h1>
           {group && (
-            <p className="text-sm text-gray-500 mt-1">
-              {group.hari_pertemuan && <span>{group.hari_pertemuan}</span>}
-              {group.hari_pertemuan && group.lokasi_pertemuan && <span> · </span>}
-              {group.lokasi_pertemuan && <span>{group.lokasi_pertemuan}</span>}
-            </p>
+            <div className="flex gap-3 mt-0.5">
+              {group.hari_pertemuan && <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar size={10} />{group.hari_pertemuan}</span>}
+              {group.lokasi_pertemuan && <span className="flex items-center gap-1 text-xs text-gray-400"><MapPin size={10} />{group.lokasi_pertemuan}</span>}
+            </div>
           )}
         </div>
         {group && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus size={16} />
-            Catat Pertemuan
+          <button onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
+            <Plus size={13} /> Catat Pertemuan
           </button>
         )}
       </div>
 
       {!group && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-sm text-yellow-800">
+        <p className="m-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
           Anda belum ditugaskan sebagai leader di iCare group manapun. Hubungi admin.
-        </div>
+        </p>
       )}
 
-      {showForm && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-6 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-800">Catat Pertemuan Baru</h2>
-            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
-              <X size={16} />
-            </button>
-          </div>
+      {group && (
+        <div className="flex flex-1 overflow-hidden">
 
-          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-gray-600">Tanggal *</label>
-              <input
-                type="date"
-                value={tanggal}
-                onChange={(e) => setTanggal(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-gray-600">Lokasi</label>
-              <input
-                type="text"
-                value={lokasi}
-                onChange={(e) => setLokasi(e.target.value)}
-                placeholder={group?.lokasi_pertemuan ?? "Lokasi pertemuan"}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600">Topik / Firman</label>
-              <input
-                type="text"
-                value={topik}
-                onChange={(e) => setTopik(e.target.value)}
-                placeholder="Topik atau judul firman"
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600">Catatan</label>
-              <textarea
-                value={catatan}
-                onChange={(e) => setCatatan(e.target.value)}
-                rows={2}
-                placeholder="Catatan tambahan..."
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-            </div>
-          </div>
-
-          <div className="px-6 pb-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-gray-600">Kehadiran</label>
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                  {presentCount} / {members.length} hadir
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">Semua Hadir</button>
-                <span className="text-gray-300">|</span>
-                <button onClick={clearAll} className="text-xs text-gray-400 hover:underline">Reset</button>
-              </div>
-            </div>
-            {members.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-xs text-gray-400 text-center">
-                Belum ada anggota di grup ini.
+          {/* ── Left pane: meeting list ── */}
+          <div className={`flex flex-col border-r border-gray-200 overflow-y-auto bg-gray-50 ${
+            selectedId ? "hidden sm:flex sm:w-72 lg:w-80 shrink-0" : "flex-1"
+          }`}>
+            {meetings.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-10 gap-2">
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Calendar size={18} className="text-gray-300" />
+                </div>
+                <p className="text-sm text-gray-500">Belum ada pertemuan</p>
+                <button onClick={() => setShowForm(true)} className="text-xs text-blue-600 hover:underline mt-1">Catat sekarang</button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
-                {members.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => toggleAttendance(m.id)}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-colors ${
-                      attendance[m.id]
-                        ? "bg-blue-50 border-blue-300 text-blue-800"
-                        : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                      attendance[m.id] ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
-                    }`}>
-                      {attendance[m.id] && <Check size={10} className="text-white" strokeWidth={3} />}
-                    </div>
-                    <span className="truncate">{m.nama_lengkap}</span>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="px-4 py-2.5 border-b border-gray-200">
+                  <p className="text-xs text-gray-400">{meetings.length} pertemuan</p>
+                </div>
+                {meetings.map((meeting) => {
+                  const d = fmtDate(meeting.tanggal);
+                  const isSelected = selectedId === meeting.id;
+                  const pct = members.length > 0 ? Math.round((meeting.jumlah_hadir / members.length) * 100) : 0;
+                  return (
+                    <button key={meeting.id} onClick={() => selectMeeting(meeting.id)}
+                      className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-gray-100 text-left transition-colors ${
+                        isSelected ? "bg-white border-l-[3px] border-l-blue-600" : "hover:bg-white"
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 mt-0.5 ${isSelected ? "bg-blue-600" : "bg-white border border-gray-200"}`}>
+                        <span className={`text-[0.5rem] uppercase font-semibold tracking-wide leading-none ${isSelected ? "text-blue-200" : "text-gray-400"}`}>{d.month}</span>
+                        <span className={`text-sm font-bold leading-tight ${isSelected ? "text-white" : "text-gray-700"}`}>{d.day}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{meeting.topik ?? "Pertemuan iCare"}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{d.full}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-400 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-[10px] text-gray-400 tabular-nums shrink-0">{meeting.jumlah_hadir}/{members.length}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
             )}
           </div>
 
-          {formError && (
-            <div className="mx-6 mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 text-sm text-red-700">
-              <span>⚠</span>
-              <span>{formError}</span>
-            </div>
-          )}
-
-          <div className="px-6 pb-6 flex justify-end gap-3">
-            <button
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {submitting && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              {submitting ? "Menyimpan..." : "Simpan Pertemuan"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {meetings.length === 0 && !showForm && group && (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <Calendar size={32} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Belum ada pertemuan yang dicatat.</p>
-          <button onClick={() => setShowForm(true)} className="mt-4 text-sm text-blue-600 hover:underline">
-            Catat pertemuan pertama
-          </button>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-3">
-        {meetings.map((meeting) => {
-          const attendanceList = meetingAttendance[meeting.id];
-          const hadirList = attendanceList?.filter((a) => a.hadir) ?? [];
-          const tidakHadirList = attendanceList?.filter((a) => !a.hadir) ?? [];
-          const isExpanded = expandedId === meeting.id;
-          const isConfirming = confirmDeleteId === meeting.id;
-          const isDeleting = deletingId === meeting.id;
-          const isEditingAttendance = editingAttendanceId === meeting.id;
-
-          return (
-            <div key={meeting.id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleExpand(meeting.id)}
-                onKeyDown={(e) => e.key === "Enter" && toggleExpand(meeting.id)}
-                className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors cursor-pointer select-none"
-              >
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex flex-col items-center justify-center shrink-0">
-                  <span className="text-[0.6rem] text-blue-500 font-medium uppercase leading-none">
-                    {new Date(meeting.tanggal).toLocaleString("id-ID", { month: "short" })}
-                  </span>
-                  <span className="text-sm font-bold text-blue-700 leading-tight">
-                    {new Date(meeting.tanggal).getDate()}
-                  </span>
+          {/* ── Right pane: detail ── */}
+          <div className={`flex-1 overflow-hidden bg-white ${selectedId ? "flex flex-col" : "hidden sm:flex sm:flex-col"}`}>
+            {!selectedMeeting ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-10 gap-2">
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Users size={18} className="text-gray-300" />
                 </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {meeting.topik ?? "Pertemuan iCare"}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {new Date(meeting.tanggal).toLocaleDateString("id-ID", {
-                      weekday: "long", year: "numeric", month: "long", day: "numeric",
-                    })}
-                    {meeting.lokasi && ` · ${meeting.lokasi}`}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Users size={13} className="text-gray-400" />
-                  <span className="text-sm font-semibold text-gray-700">{meeting.jumlah_hadir}</span>
-                  <span className="text-xs text-gray-400 mr-2">hadir</span>
-                  {isExpanded
-                    ? <ChevronUp size={14} className="text-gray-400" />
-                    : <ChevronDown size={14} className="text-gray-400" />}
-                </div>
+                <p className="text-sm text-gray-400">Pilih pertemuan di sebelah kiri</p>
               </div>
+            ) : (() => {
+              const d = fmtDate(selectedMeeting.tanggal);
+              const list = meetingAttendance[selectedMeeting.id];
+              const hadirList = list?.filter((a) => a.hadir) ?? [];
+              const tidakHadirList = list?.filter((a) => !a.hadir) ?? [];
+              const isEditing = editingAttendanceId === selectedMeeting.id;
+              const isConfirming = confirmDeleteId === selectedMeeting.id;
+              const isDeleting = deletingId === selectedMeeting.id;
+              const editCount = Object.values(editAttendanceMap).filter(Boolean).length;
 
-              {isExpanded && (
-                <div
-                  className="border-t border-gray-100 px-5 py-4 bg-gray-50 flex flex-col gap-4"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {!isEditingAttendance && (
-                    <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                      <button
-                        onClick={() => startEditAttendance(meeting.id)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        <Pencil size={13} />
-                        Edit Kehadiran
-                      </button>
+              return (
+                <>
+                  {/* Detail header */}
+                  <div className="px-6 py-5 border-b border-gray-100">
+                    <button
+                      onClick={() => { setSelectedId(null); setEditingAttendanceId(null); setConfirmDeleteId(null); }}
+                      className="sm:hidden flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-3"
+                    >
+                      <ChevronLeft size={12} /> Kembali
+                    </button>
 
-                      {isConfirming ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-gray-500 font-medium">Hapus?</span>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="px-2.5 py-1 text-[11px] font-bold border border-gray-300 rounded bg-white hover:bg-gray-50"
-                          >
-                            Batal
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-blue-600 flex flex-col items-center justify-center shrink-0">
+                        <span className="text-[0.55rem] text-blue-200 uppercase font-semibold tracking-wide leading-none">{d.month}</span>
+                        <span className="text-lg font-bold text-white leading-tight">{d.day}</span>
+                        <span className="text-[0.5rem] text-blue-300 leading-none">{d.year}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-base font-semibold text-gray-900 leading-snug">
+                          {selectedMeeting.topik ?? "Pertemuan iCare"}
+                        </h2>
+                        <p className="text-xs text-gray-400 mt-0.5">{d.full}</p>
+                        {selectedMeeting.lokasi && (
+                          <p className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
+                            <MapPin size={10} />{selectedMeeting.lokasi}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Users size={12} className="text-gray-400" />
+                          <span className="text-xs text-gray-500">{selectedMeeting.jumlah_hadir} dari {members.length} hadir</span>
+                          <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full"
+                              style={{ width: `${members.length > 0 ? Math.round((selectedMeeting.jumlah_hadir / members.length) * 100) : 0}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 mt-4">
+                      {!isEditing && !isConfirming && (
+                        <>
+                          <button onClick={() => startEdit(selectedMeeting.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <Pencil size={11} /> Edit kehadiran
                           </button>
-                          <button
-                            onClick={() => handleDelete(meeting.id)}
-                            disabled={isDeleting}
-                            className="px-2.5 py-1 text-[11px] font-bold bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                          >
+                          <button onClick={() => setConfirmDeleteId(selectedMeeting.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-500 border border-red-100 bg-red-50 rounded-lg hover:bg-red-100 transition-colors ml-auto">
+                            <Trash2 size={11} /> Hapus
+                          </button>
+                        </>
+                      )}
+                      {isConfirming && (
+                        <div className="flex items-center gap-2 w-full">
+                          <p className="text-xs text-gray-500 flex-1">Hapus pertemuan ini secara permanen?</p>
+                          <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50">Batal</button>
+                          <button onClick={() => handleDelete(selectedMeeting.id)} disabled={isDeleting}
+                            className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
                             {isDeleting ? "..." : "Ya, Hapus"}
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmDeleteId(meeting.id)}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-100 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                          Hapus Pertemuan
-                        </button>
                       )}
                     </div>
-                  )}
+                  </div>
 
-                  {meeting.catatan && (
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-700">Catatan: </span>
-                      {meeting.catatan}
-                    </p>
-                  )}
+                  {/* Detail body */}
+                  <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
-                  {isEditingAttendance ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium text-gray-600">Edit Kehadiran</p>
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                            {Object.values(editAttendanceMap).filter(Boolean).length} / {members.length} hadir
-                          </span>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              const all: AttendanceMap = {};
-                              members.forEach((m) => { all[m.id] = true; });
-                              setEditAttendanceMap(all);
-                            }}
-                            className="text-xs text-blue-600 hover:underline"
-                          >
-                            Semua Hadir
-                          </button>
-                          <span className="text-gray-300">|</span>
-                          <button
-                            onClick={() => {
-                              const none: AttendanceMap = {};
-                              members.forEach((m) => { none[m.id] = false; });
-                              setEditAttendanceMap(none);
-                            }}
-                            className="text-xs text-gray-400 hover:underline"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1 mb-3">
-                        {members.map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => setEditAttendanceMap((prev) => ({ ...prev, [m.id]: !prev[m.id] }))}
-                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm text-left transition-colors ${
-                              editAttendanceMap[m.id]
-                                ? "bg-blue-50 border-blue-300 text-blue-800"
-                                : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
-                            }`}
-                          >
-                            <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                              editAttendanceMap[m.id] ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
-                            }`}>
-                              {editAttendanceMap[m.id] && <Check size={10} className="text-white" strokeWidth={3} />}
-                            </div>
-                            <span className="truncate">{m.nama_lengkap}</span>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => setEditingAttendanceId(null)}
-                          disabled={savingAttendance}
-                          className="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
-                        >
-                          Batal
-                        </button>
-                        <button
-                          onClick={() => handleSaveAttendance(meeting.id)}
-                          disabled={savingAttendance}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg transition-colors"
-                        >
-                          {savingAttendance && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                          {savingAttendance ? "Menyimpan..." : "Simpan"}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 mb-2">
-                          Hadir
-                          <span className="ml-1.5 bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full text-[0.65rem]">
-                            {attendanceList ? hadirList.length : "…"}
-                          </span>
+                    {selectedMeeting.catatan && (
+                      <div className="bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
+                        <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <FileText size={10} /> Catatan
                         </p>
-                        {!attendanceList ? (
-                          <p className="text-xs text-gray-400">Memuat...</p>
-                        ) : hadirList.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {hadirList.map((a, i) => (
-                              <span key={i} className="text-xs bg-white border border-green-200 text-green-800 px-2.5 py-1 rounded-full">
-                                {a.nama}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-400">—</p>
-                        )}
+                        <p className="text-sm text-amber-900">{selectedMeeting.catatan}</p>
                       </div>
+                    )}
+
+                    {isEditing ? (
                       <div>
-                        <p className="text-xs font-medium text-gray-500 mb-2">
-                          Tidak Hadir
-                          <span className="ml-1.5 bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full text-[0.65rem]">
-                            {attendanceList ? tidakHadirList.length : "…"}
-                          </span>
-                        </p>
-                        {!attendanceList ? (
-                          <p className="text-xs text-gray-400">Memuat...</p>
-                        ) : tidakHadirList.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {tidakHadirList.map((a, i) => (
-                              <span key={i} className="text-xs bg-white border border-red-200 text-red-700 px-2.5 py-1 rounded-full">
-                                {a.nama}
-                              </span>
-                            ))}
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            Edit kehadiran — <span className="text-blue-600">{editCount}/{members.length}</span>
+                          </p>
+                          <div className="flex gap-3 text-xs">
+                            <button onClick={() => { const a: AttendanceMap = {}; members.forEach((m) => { a[m.id] = true; }); setEditAttendanceMap(a); }} className="text-blue-600 hover:underline">Semua</button>
+                            <button onClick={() => { const a: AttendanceMap = {}; members.forEach((m) => { a[m.id] = false; }); setEditAttendanceMap(a); }} className="text-gray-400 hover:underline">Reset</button>
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-400">—</p>
-                        )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 max-h-72 overflow-y-auto mb-3">
+                          {members.map((m) => (
+                            <CheckboxRow key={m.id} label={m.nama_lengkap}
+                              checked={editAttendanceMap[m.id] ?? false}
+                              onToggle={() => setEditAttendanceMap((prev) => ({ ...prev, [m.id]: !prev[m.id] }))} />
+                          ))}
+                        </div>
+                        <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                          <button onClick={() => setEditingAttendanceId(null)} disabled={savingAttendance}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Batal</button>
+                          <button onClick={() => handleSaveAttendance(selectedMeeting.id)} disabled={savingAttendance}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">
+                            {savingAttendance && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                            {savingAttendance ? "Menyimpan..." : "Simpan"}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hadir</p>
+                            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                              {list ? hadirList.length : "…"}
+                            </span>
+                          </div>
+                          {!list ? <p className="text-xs text-gray-400">Memuat...</p>
+                            : hadirList.length === 0 ? <p className="text-xs text-gray-400 italic">—</p>
+                            : <div className="space-y-2">
+                                {hadirList.map((a, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                                    <span className="text-sm text-gray-700">{a.nama}</span>
+                                  </div>
+                                ))}
+                              </div>
+                          }
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tidak hadir</p>
+                            <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                              {list ? tidakHadirList.length : "…"}
+                            </span>
+                          </div>
+                          {!list ? <p className="text-xs text-gray-400">Memuat...</p>
+                            : tidakHadirList.length === 0 ? <p className="text-xs text-gray-400 italic">Semua hadir</p>
+                            : <div className="space-y-2">
+                                {tidakHadirList.map((a, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-200 shrink-0" />
+                                    <span className="text-sm text-gray-400">{a.nama}</span>
+                                  </div>
+                                ))}
+                              </div>
+                          }
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+        </div>
+      )}
     </div>
   );
 }
