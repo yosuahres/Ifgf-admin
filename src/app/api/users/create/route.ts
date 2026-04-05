@@ -49,6 +49,10 @@ export async function POST(req: NextRequest) {
         email: trimmedEmail,
         password,
         email_confirm: true,
+        user_metadata: {
+          full_name: trimmedFullName,
+          role: trimmedRole,
+        },
       });
 
     if (authError) {
@@ -57,37 +61,9 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = authData.user.id;
-    console.log("✓ Created auth user:", userId);
 
-    const profilePayload = { 
-      id: userId, 
-      full_name: trimmedFullName, 
-      role: trimmedRole, 
-      email: trimmedEmail 
-    };
-    console.log("About to insert profile with:", profilePayload);
-
-    // Insert profile (don't use upsert since ID is already unique from auth)
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .insert(profilePayload)
-      .select();
-
-    console.log("Profile insert result:", { profileData, profileError });
-
-    if (profileError) {
-      console.error("❌ Profile insert failed:", JSON.stringify(profileError, null, 2));
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-      return NextResponse.json(
-        { error: `Auth user dibuat tapi profil gagal: ${profileError.message || JSON.stringify(profileError)}` },
-        { status: 500 },
-      );
-    }
-
-    console.log("✓ User created successfully:", userId);
     return NextResponse.json({ success: true, id: userId }, { status: 201 }); 
   } catch (err: any) {
-    console.error("Create user exception:", err);
     return NextResponse.json(
       { error: err?.message ?? "Internal server error" },
       { status: 500 },
