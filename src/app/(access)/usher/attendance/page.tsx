@@ -57,7 +57,8 @@ export default function UsherAttendancePage() {
 
   useEffect(() => {
     const from = new Date();
-    from.setDate(from.getDate() - 7);
+    const to = new Date();
+    to.setDate(to.getDate() + 7);
     supabase
       .from("event_occurrences")
       .select(
@@ -65,7 +66,8 @@ export default function UsherAttendancePage() {
       )
       .eq("is_cancelled", false)
       .gte("occurrence_date", from.toISOString().split("T")[0])
-      .order("occurrence_date", { ascending: false })
+      .lte("occurrence_date", to.toISOString().split("T")[0])
+      .order("occurrence_date", { ascending: true })
       .limit(20)
       .then(({ data }) => {
         setOccurrences((data as any) ?? []);

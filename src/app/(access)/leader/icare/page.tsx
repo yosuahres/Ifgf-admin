@@ -93,11 +93,6 @@ export default function IcareMeetingsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [meetingAttendance, setMeetingAttendance] = useState<Record<string, AttendanceEntry[]>>({});
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
-  const [editAttendanceMap, setEditAttendanceMap] = useState<AttendanceMap>({});
-  const [savingAttendance, setSavingAttendance] = useState(false);
 
   const supabase = createClient();
 
@@ -157,8 +152,6 @@ export default function IcareMeetingsPage() {
 
   const selectMeeting = (id: string) => {
     setSelectedId(id);
-    setEditingAttendanceId(null);
-    setConfirmDeleteId(null);
     loadMeetingAttendance(id);
   };
 
@@ -181,40 +174,7 @@ export default function IcareMeetingsPage() {
     setShowForm(false); setTopik(""); setCatatan(""); setSubmitting(false);
   };
 
-  const handleDelete = async (meetingId: string) => {
-    setDeletingId(meetingId);
-    await supabase.from("icare_attendance").delete().eq("meeting_id", meetingId);
-    const { error } = await supabase.from("icare_meetings").delete().eq("id", meetingId);
-    if (error) { console.error(error.message); setDeletingId(null); setConfirmDeleteId(null); return; }
-    setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
-    setMeetingAttendance((prev) => { const n = { ...prev }; delete n[meetingId]; return n; });
-    if (selectedId === meetingId) setSelectedId(null);
-    setDeletingId(null); setConfirmDeleteId(null);
-  };
 
-  const startEdit = (meetingId: string) => {
-    const list = meetingAttendance[meetingId] ?? [];
-    const map: AttendanceMap = {};
-    members.forEach((m) => { map[m.id] = list.find((a) => a.nama === m.nama_lengkap)?.hadir ?? false; });
-    setEditAttendanceMap(map);
-    setEditingAttendanceId(meetingId);
-    setConfirmDeleteId(null);
-  };
-
-  const handleSaveAttendance = async (meetingId: string) => {
-    setSavingAttendance(true);
-    const updates = members.map((m) => ({ meeting_id: meetingId, jemaat_id: m.id, hadir: editAttendanceMap[m.id] ?? false, keterangan: null }));
-    const { error } = await supabase.from("icare_attendance").upsert(updates as any, { onConflict: "meeting_id,jemaat_id" });
-    if (error) { console.error(error.message); setSavingAttendance(false); return; }
-    const jumlah_hadir = Object.values(editAttendanceMap).filter(Boolean).length;
-    await supabase.from("icare_meetings").update({ jumlah_hadir } as any).eq("id", meetingId);
-    setMeetingAttendance((prev) => ({
-      ...prev,
-      [meetingId]: members.map((m) => ({ nama: m.nama_lengkap, hadir: editAttendanceMap[m.id] ?? false, keterangan: null })),
-    }));
-    setMeetings((prev) => prev.map((mt) => mt.id === meetingId ? { ...mt, jumlah_hadir } : mt));
-    setEditingAttendanceId(null); setSavingAttendance(false);
-  };
 
   if (!authorized || loadingPage) return null;
 
@@ -388,17 +348,13 @@ export default function IcareMeetingsPage() {
               const list = meetingAttendance[selectedMeeting.id];
               const hadirList = list?.filter((a) => a.hadir) ?? [];
               const tidakHadirList = list?.filter((a) => !a.hadir) ?? [];
-              const isEditing = editingAttendanceId === selectedMeeting.id;
-              const isConfirming = confirmDeleteId === selectedMeeting.id;
-              const isDeleting = deletingId === selectedMeeting.id;
-              const editCount = Object.values(editAttendanceMap).filter(Boolean).length;
 
               return (
                 <>
                   {/* Detail header */}
                   <div className="px-6 py-5 border-b border-gray-100">
                     <button
-                      onClick={() => { setSelectedId(null); setEditingAttendanceId(null); setConfirmDeleteId(null); }}
+                      onClick={() => { setSelectedId(null); }}
                       className="sm:hidden flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-3"
                     >
                       <ChevronLeft size={12} /> Kembali
@@ -431,31 +387,7 @@ export default function IcareMeetingsPage() {
                       </div>
                     </div>
 
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-2 mt-4">
-                      {!isEditing && !isConfirming && (
-                        <>
-                          <button onClick={() => startEdit(selectedMeeting.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <Pencil size={11} /> Edit kehadiran
-                          </button>
-                          <button onClick={() => setConfirmDeleteId(selectedMeeting.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-500 border border-red-100 bg-red-50 rounded-lg hover:bg-red-100 transition-colors ml-auto">
-                            <Trash2 size={11} /> Hapus
-                          </button>
-                        </>
-                      )}
-                      {isConfirming && (
-                        <div className="flex items-center gap-2 w-full">
-                          <p className="text-xs text-gray-500 flex-1">Hapus pertemuan ini secara permanen?</p>
-                          <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50">Batal</button>
-                          <button onClick={() => handleDelete(selectedMeeting.id)} disabled={isDeleting}
-                            className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
-                            {isDeleting ? "..." : "Ya, Hapus"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+
                   </div>
 
                   {/* Detail body */}
@@ -470,76 +402,46 @@ export default function IcareMeetingsPage() {
                       </div>
                     )}
 
-                    {isEditing ? (
+                    <div className="grid grid-cols-2 gap-6">
                       <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            Edit kehadiran — <span className="text-blue-600">{editCount}/{members.length}</span>
-                          </p>
-                          <div className="flex gap-3 text-xs">
-                            <button onClick={() => { const a: AttendanceMap = {}; members.forEach((m) => { a[m.id] = true; }); setEditAttendanceMap(a); }} className="text-blue-600 hover:underline">Semua</button>
-                            <button onClick={() => { const a: AttendanceMap = {}; members.forEach((m) => { a[m.id] = false; }); setEditAttendanceMap(a); }} className="text-gray-400 hover:underline">Reset</button>
-                          </div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hadir</p>
+                          <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                            {list ? hadirList.length : "…"}
+                          </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-1.5 max-h-72 overflow-y-auto mb-3">
-                          {members.map((m) => (
-                            <CheckboxRow key={m.id} label={m.nama_lengkap}
-                              checked={editAttendanceMap[m.id] ?? false}
-                              onToggle={() => setEditAttendanceMap((prev) => ({ ...prev, [m.id]: !prev[m.id] }))} />
-                          ))}
-                        </div>
-                        <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-                          <button onClick={() => setEditingAttendanceId(null)} disabled={savingAttendance}
-                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Batal</button>
-                          <button onClick={() => handleSaveAttendance(selectedMeeting.id)} disabled={savingAttendance}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">
-                            {savingAttendance && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                            {savingAttendance ? "Menyimpan..." : "Simpan"}
-                          </button>
-                        </div>
+                        {!list ? <p className="text-xs text-gray-400">Memuat...</p>
+                          : hadirList.length === 0 ? <p className="text-xs text-gray-400 italic">—</p>
+                          : <div className="space-y-2">
+                              {hadirList.map((a, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                                  <span className="text-sm text-gray-700">{a.nama}</span>
+                                </div>
+                              ))}
+                            </div>
+                        }
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-6">
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hadir</p>
-                            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                              {list ? hadirList.length : "…"}
-                            </span>
-                          </div>
-                          {!list ? <p className="text-xs text-gray-400">Memuat...</p>
-                            : hadirList.length === 0 ? <p className="text-xs text-gray-400 italic">—</p>
-                            : <div className="space-y-2">
-                                {hadirList.map((a, i) => (
-                                  <div key={i} className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-                                    <span className="text-sm text-gray-700">{a.nama}</span>
-                                  </div>
-                                ))}
-                              </div>
-                          }
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tidak hadir</p>
+                          <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                            {list ? tidakHadirList.length : "…"}
+                          </span>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tidak hadir</p>
-                            <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
-                              {list ? tidakHadirList.length : "…"}
-                            </span>
-                          </div>
-                          {!list ? <p className="text-xs text-gray-400">Memuat...</p>
-                            : tidakHadirList.length === 0 ? <p className="text-xs text-gray-400 italic">Semua hadir</p>
-                            : <div className="space-y-2">
-                                {tidakHadirList.map((a, i) => (
-                                  <div key={i} className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-200 shrink-0" />
-                                    <span className="text-sm text-gray-400">{a.nama}</span>
-                                  </div>
-                                ))}
-                              </div>
-                          }
-                        </div>
+                        {!list ? <p className="text-xs text-gray-400">Memuat...</p>
+                          : tidakHadirList.length === 0 ? <p className="text-xs text-gray-400 italic">Semua hadir</p>
+                          : <div className="space-y-2">
+                              {tidakHadirList.map((a, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-gray-200 shrink-0" />
+                                  <span className="text-sm text-gray-400">{a.nama}</span>
+                                </div>
+                              ))}
+                            </div>
+                        }
                       </div>
-                    )}
+                    </div>
                   </div>
                 </>
               );
