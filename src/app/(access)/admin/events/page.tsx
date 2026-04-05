@@ -379,8 +379,8 @@ export default function EventsPage() {
       savedItem = inserted;
     }
 
-    // Auto-generate occurrences if a recurrence rule is set
-    if (savedItem?.recurrence_rule) {
+    // Auto-generate occurrences for all events (recurring or not)
+    if (savedItem) {
       await generateOccurrences(savedItem);
     }
 
@@ -411,11 +411,10 @@ export default function EventsPage() {
 
     if (error) throw new Error(error.message);
 
-    // Auto-generate occurrences for all imported events that have a recurrence rule
+    // Auto-generate occurrences for all imported events (recurring or not)
     if (inserted) {
       await Promise.all(
         inserted
-          .filter((ev: any) => ev.recurrence_rule)
           .map((ev: any) => generateOccurrences(ev))
       );
     }

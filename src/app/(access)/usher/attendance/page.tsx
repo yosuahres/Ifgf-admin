@@ -158,7 +158,7 @@ export default function UsherAttendancePage() {
               </Card>
             ) : occurrences.length === 0 ? (
               <Card className="p-6 text-center text-sm text-gray-400">
-                Tidak ada event tersedia dalam 7 hari terakhir.
+                Tidak ada event tersedia dalam 7 hari ke depan.
               </Card>
             ) : (
               <Card>
