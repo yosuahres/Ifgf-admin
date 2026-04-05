@@ -12,15 +12,27 @@ export async function POST(req: NextRequest) {
   try {
     const { email, password, full_name, role } = await req.json();
 
-    if (!email || !password || !full_name || !role) {
+    const trimmedEmail = email?.trim?.() || "";
+    const trimmedFullName = full_name?.trim?.() || "";
+    const trimmedRole = role?.trim?.() || "";
+    
+    if (!trimmedEmail || !password || !trimmedFullName || !trimmedRole) {
+      const missing = [];
+      if (!trimmedEmail) missing.push("email");
+      if (!password) missing.push("password");
+      if (!trimmedFullName) missing.push("full_name");
+      if (!trimmedRole) missing.push("role");
+      
+      console.error("Validation failed - missing fields:", missing, { email, password, full_name, role });
+      
       return NextResponse.json(
-        { error: "email, password, full_name, dan role wajib diisi." },
+        { error: `Field wajib diisi: ${missing.join(", ")}` },
         { status: 400 },
       );
     }
 
     const validRoles = ["admin", "pastor", "leader", "usher", "finance"];
-    if (!validRoles.includes(role)) {
+    if (!validRoles.includes(trimmedRole)) {
       return NextResponse.json(
         { error: `Role tidak valid. Pilihan: ${validRoles.join(", ")}` },
         { status: 400 },
@@ -29,12 +41,13 @@ export async function POST(req: NextRequest) {
 
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: trimmedEmail,
         password,
         email_confirm: true,
       });
 
     if (authError) {
+      console.error("Auth creation error:", authError);
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
@@ -42,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const { error: profileError } = await supabaseAdmin
     .from("profiles")
-    .upsert({ id: userId, full_name, role, email }); 
+    .upsert({ id: userId, full_name: trimmedFullName, role: trimmedRole, email: trimmedEmail }); 
 
     if (profileError) {
     await supabaseAdmin.auth.admin.deleteUser(userId);

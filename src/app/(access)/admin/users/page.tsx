@@ -181,6 +181,19 @@ export default function UsersPage() {
   const handleSubmit = async (data: Record<string, string>) => {
     setIsSubmitting(true);
     try {
+      // Validate all required fields are non-empty
+      if (!data.email?.trim() || !data.full_name?.trim() || !data.role?.trim()) {
+        alert("Harap isi semua field yang diperlukan");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!data.password && !editItem) {
+        alert("Password harus diisi untuk user baru");
+        setIsSubmitting(false);
+        return;
+      }
+
       let userId: string | null = null;
 
       if (editItem) {
@@ -192,7 +205,7 @@ export default function UsersPage() {
             email:     data.email.trim().toLowerCase(),
             password:  data.password || undefined,
             full_name: data.full_name.trim(),
-            role:      data.role,
+            role:      data.role.trim(),
           }),
         });
         const json = await res.json();
@@ -204,9 +217,9 @@ export default function UsersPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email:     data.email.trim().toLowerCase(),
-            password:  data.password,
+            password:  data.password.trim(),
             full_name: data.full_name.trim(),
-            role:      data.role,
+            role:      data.role.trim(),
           }),
         });
         const json = await res.json();
