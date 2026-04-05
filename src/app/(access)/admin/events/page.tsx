@@ -448,6 +448,8 @@ export default function EventsPage() {
         onImport={handleImport}
         refreshTrigger={refreshTrigger}
         renderExpandedRow={renderExpandedRow}
+        defaultSortKey="event_date"
+        defaultSortDir="desc"
       />
 
       <ModalForm

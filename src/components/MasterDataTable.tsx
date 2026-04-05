@@ -43,6 +43,15 @@ interface MasterDataTableProps<T = any> {
    */
   refreshTrigger?: number;
   /**
+   * Column key to sort by on initial load.
+   * The API route must support ?orderBy=<key>&orderDir=asc|desc.
+   */
+  defaultSortKey?: string;
+  /**
+   * Sort direction for defaultSortKey. Defaults to "asc".
+   */
+  defaultSortDir?: "asc" | "desc";
+  /**
    * Optional renderer for an expanded row below each data row.
    * Return null to render nothing (row stays collapsed).
    */
@@ -60,6 +69,8 @@ export default function MasterDataTable<T = any>({
   onImport,
   onItemsChange,
   refreshTrigger = 0,
+  defaultSortKey,
+  defaultSortDir = "asc",
   renderExpandedRow,
 }: MasterDataTableProps<T>) {
   const [items, setItems] = useState<any[]>([]);
@@ -100,6 +111,8 @@ export default function MasterDataTable<T = any>({
       params.append("page", page.toString());
       params.append("limit", limit.toString());
       if (debouncedSearch) params.append("search", debouncedSearch);
+      if (defaultSortKey) params.append("orderBy", defaultSortKey);
+      if (defaultSortKey) params.append("orderDir", defaultSortDir);
 
       const separator = endpoint.includes("?") ? "&" : "?";
       const url = `${endpoint}${separator}${params.toString()}`;
@@ -117,7 +130,7 @@ export default function MasterDataTable<T = any>({
     } finally {
       setLoading(false);
     }
-  }, [endpoint, page, limit, debouncedSearch, importKey, refreshTrigger]);
+  }, [endpoint, page, limit, debouncedSearch, importKey, refreshTrigger, defaultSortKey, defaultSortDir]);
 
   useEffect(() => {
     loadData();

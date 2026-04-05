@@ -33,27 +33,28 @@ export const adminNav: NavItem[] = [
   //   ],
   // },
   { href: "/admin/reports", label: "Reports", icon: BookOpen },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  // { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export const leaderNav: NavItem[] = [
   { href: "/leader", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leader/icare", label: "Pertemuan", icon: BookOpen },
   { href: "/leader/members", label: "Anggota", icon: Users },
+  { href: "/leader/reports", label: "Reports", icon: BookOpen },
 ];
 
-export const userNav: NavItem[] = [
-  { href: "/user", label: "Dashboard", icon: LayoutDashboard },
+export const financeNav: NavItem[] = [
+  { href: "/finance", label: "Dashboard", icon: LayoutDashboard },
   {
     label: "Cashflow",
     icon: Group,
     children: [
-      { href: "/user/cashflow", label: "Cash Report", icon: BookOpen },
-      { href: "/user/cashin", label: "Cash In", icon: DollarSign },
-      { href: "/user/cashout", label: "Cash Out", icon: DollarSign },
+      { href: "/finance/cashflow", label: "Cash Report", icon: BookOpen },
+      { href: "/finance/cashin", label: "Cash In", icon: DollarSign },
+      { href: "/finance/cashout", label: "Cash Out", icon: DollarSign },
     ],
   },
-  { href: "/user/persembahan", label: "Persembahan", icon: BookOpen },
+  { href: "/finance/persembahan", label: "Persembahan", icon: BookOpen },
 ];
 
 export const usherNav: NavItem[] = [
@@ -65,6 +66,6 @@ export const usherNav: NavItem[] = [
 export const navByRole: Record<string, NavItem[]> = {
   admin: adminNav,
   leader: leaderNav,
-  user: userNav,
+  finance: financeNav,
   usher: usherNav,
 };

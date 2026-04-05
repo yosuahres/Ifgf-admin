@@ -1,4 +1,4 @@
-//utils/api.ts
+// utils/api.ts
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database.types";
 
@@ -10,18 +10,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 export async function fetchFromBackend(url: string) {
   try {
     console.log("Fetching from:", url);
-
     const urlObj = new URL(url, "http://localhost");
     const pathname = urlObj.pathname;
     const searchParams = urlObj.searchParams;
-
     const tableName = pathname.replace("/api/", "").replace(/-/g, "_");
+
     let query =
       tableName === "icare_groups"
         ? supabase
             .from("icare_groups")
             .select("*, jemaat(nama_lengkap)", { count: "exact" })
-        : tableName === "profiles"                                    // 👈 add this
+        : tableName === "profiles"
         ? supabase
             .from("profiles")
             .select("*, jemaat!jemaat_user_id_fkey(id, nama_lengkap)", { count: "exact" })
@@ -31,7 +30,6 @@ export async function fetchFromBackend(url: string) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = (page - 1) * limit;
-
     if (limit !== 10000) {
       query = query.range(offset, offset + limit - 1);
     }
@@ -50,31 +48,31 @@ export async function fetchFromBackend(url: string) {
       }
     }
 
+    // Apply ordering if provided
+    const orderBy = searchParams.get("orderBy");
+    const orderDir = searchParams.get("orderDir") ?? "asc";
+    if (orderBy) {
+      query = query.order(orderBy, { ascending: orderDir === "asc" });
+    }
+
     const { data, error, count } = await query;
-    
-      if (error) throw error;
-      console.log("Raw profiles row sample:", JSON.stringify(data?.[0], null, 2));
-
-      // Flatten jemaat join for profiles
-      const flatData =
-        tableName === "profiles"
-          ? (data as any[]).map((row) => ({
-              ...row,
-              jemaat_nama: row.jemaat?.[0]?.nama_lengkap ?? null,  // 👈 [0] instead of direct access
-              jemaat_id:   row.jemaat?.[0]?.id ?? null,            // 👈 [0] here too
-              jemaat:      undefined,
-            }))
-          : data;
-
-      return {
-        data: flatData || [],   // 👈 changed from data to flatData
-        total: count || 0,
-      };
-
     if (error) throw error;
 
+    console.log("Raw profiles row sample:", JSON.stringify(data?.[0], null, 2));
+
+    // Flatten jemaat join for profiles
+    const flatData =
+      tableName === "profiles"
+        ? (data as any[]).map((row) => ({
+            ...row,
+            jemaat_nama: row.jemaat?.[0]?.nama_lengkap ?? null,
+            jemaat_id:   row.jemaat?.[0]?.id ?? null,
+            jemaat:      undefined,
+          }))
+        : data;
+
     return {
-      data: data || [],
+      data: flatData || [],
       total: count || 0,
     };
   } catch (error) {

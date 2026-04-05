@@ -44,7 +44,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
         .eq("id", authUser.id)
         .maybeSingle();
       if (profile) {
-        setNavItems(navByRole[profile.role ?? "user"] ?? []);
+        setNavItems(navByRole[profile.role ?? "finance"] ?? []);
       }
     };
     fetchUser();

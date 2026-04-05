@@ -46,12 +46,6 @@ export async function runReportQuery(
         }
         break;
 
-      case "boolean":
-        if (typeof val === "boolean") {
-          query = query.eq(filterDef.key, val);
-        }
-        break;
-
       case "multiselect":
         if (Array.isArray(val) && val.length > 0) {
           query = query.in(filterDef.key, val);

@@ -11,7 +11,7 @@ const roleRedirect: Record<string, string> = {
   admin: "/admin",
   leader: "/leader",
   pastor: "/",
-  user: "/user",
+  finance: "/finance",
   usher: "/usher",
 };
 
@@ -39,7 +39,7 @@ export default function AuthForm({ type }: AuthFormProps) {
         .from("profiles")
         .select("role")
         .eq("id", data.user.id)
-        .maybeSingle<{ role: "admin" | "pastor" | "leader" | "user" | "usher" }>();
+        .maybeSingle<{ role: "admin" | "pastor" | "leader" | "finance" | "usher" }>();
 
       if (profileError) {
         setError(profileError.message);

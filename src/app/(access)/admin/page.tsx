@@ -96,7 +96,6 @@ export default function DashboardPage() {
     const fetchData = async () => {
       setLoadingBirthdays(true);
 
-      // Single query — reuse for both total count and birthday filtering
       const { data, error, count } = await supabase
         .from("jemaat")
         .select("id, nama_lengkap, dob", { count: "exact" })

@@ -20,7 +20,7 @@ const ROLE_OPTIONS = [
   { value: "admin",   label: "Admin" },
   { value: "pastor",  label: "Pastor" },
   { value: "leader",  label: "Leader" },
-  { value: "user",    label: "Finance" },
+  { value: "finance", label: "Finance" },
   { value: "usher",   label: "Usher" },
 ];
 
@@ -98,7 +98,7 @@ export default function UsersPage() {
           value === "admin"  ? "bg-red-100 text-red-800"       :
           value === "pastor" ? "bg-blue-100 text-blue-800"     :
           value === "leader" ? "bg-yellow-100 text-yellow-800" :
-          value === "user"   ? "bg-green-100 text-green-800"   :
+          value === "finance" ? "bg-green-100 text-green-800" :
                                "bg-gray-100 text-gray-800"
         }`}>
           {value?.charAt(0).toUpperCase() + value?.slice(1)}
@@ -248,15 +248,15 @@ export default function UsersPage() {
     const payload = rows.map((row) => ({
       id:        row.id?.trim(),
       full_name: row.full_name?.trim(),
-      role:      row.role?.trim().toLowerCase() || "user",
+      role:      row.role?.trim().toLowerCase() || "finance",
     }));
 
-    const validRoles = new Set(["admin", "pastor", "leader", "user", "usher"]);
+    const validRoles = new Set(["admin", "pastor", "leader", "finance", "usher"]);
     const invalidRows = payload.filter((r) => !validRoles.has(r.role));
     if (invalidRows.length > 0) {
       throw new Error(
         `Role tidak valid: ${invalidRows.map((r) => `"${r.role}"`).join(", ")}. ` +
-        `Diizinkan: admin, pastor, leader, user, usher.`,
+        `Diizinkan: admin, pastor, leader, finance, usher.`,
       );
     }
 

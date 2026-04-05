@@ -6,6 +6,7 @@ export const REPORT_CONFIGS: ReportConfig[] = [
   {
     id: "jemaat",
     label: "Data Jemaat",
+    allowedRoles: ["admin"], // ← admin only
     table: "jemaat",
     select: "*",
     searchColumn: "nama_lengkap",
@@ -88,7 +89,7 @@ export const REPORT_CONFIGS: ReportConfig[] = [
         label: "Status",
         render: (v) => (
           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-            v === "aktif" ? "bg-green-100 text-green-800" :
+            v === "aktif"       ? "bg-green-100 text-green-800" :
             v === "tidak aktif" ? "bg-red-100 text-red-800" :
             "bg-gray-100 text-gray-600"
           }`}>
@@ -118,51 +119,241 @@ export const REPORT_CONFIGS: ReportConfig[] = [
     ],
   },
 
-  // ─── ICARE GROUPS ──────────────────────────────────────────────────────────
+  // ─── ICARE REPORT ──────────────────────────────────────────────────────────
   {
-    id: "icare_groups",
-    label: "iCare Groups",
-    table: "icare_groups",
-    select: "*, jemaat(nama_lengkap)",
-    searchColumn: "nama_icare",
-    defaultSort: { column: "nama_icare", ascending: true },
+    id: "icare_report",
+    label: "Laporan iCare",
+    allowedRoles: ["admin", "leader"], // ← both roles
+    table: "icare_meetings",
+    select: `*, icare_groups(nama_icare, hari_pertemuan, lokasi_pertemuan, jemaat(nama_lengkap), icare_members(id))`,
+    searchColumn: "topik",
+    defaultSort: { column: "tanggal", ascending: false },
     filters: [
       {
-        key: "hari_pertemuan",
-        label: "Hari Pertemuan",
-        type: "multiselect",
-        options: ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"].map(
-          (d) => ({ value: d, label: d })
-        ),
+        key: "tanggal",
+        label: "Tanggal Pertemuan",
+        type: "date_range",
       },
       {
-        key: "lokasi_pertemuan",
-        label: "Lokasi",
-        type: "text",
-        placeholder: "Cari lokasi...",
-      },
-      {
-        key: "nama_icare",
-        label: "Nama iCare",
-        type: "text",
-        placeholder: "Cari nama iCare...",
+        key: "jumlah_hadir",
+        label: "Jumlah Kehadiran",
+        type: "number_range",
       },
     ],
+    transformForExport: (rows: any[]) =>
+      rows.map((row) => {
+        const group = row.icare_groups ?? {};
+        return {
+          "Nama iCare":     group.nama_icare ?? "-",
+          "Leader":         group.jemaat?.nama_lengkap ?? "-",
+          "Hari Pertemuan": group.hari_pertemuan ?? "-",
+          "Lokasi iCare":   group.lokasi_pertemuan ?? "-",
+          "Tanggal":        row.tanggal
+            ? new Date(row.tanggal).toLocaleDateString("id-ID", {
+                day: "numeric", month: "long", year: "numeric",
+              })
+            : "-",
+          "Jumlah Hadir":   row.jumlah_hadir ?? 0,
+          "Topik":          row.topik ?? "-",
+          "Catatan":        row.catatan ?? "-",
+        };
+      }),
     columns: [
-      { key: "nama_icare", label: "Nama iCare" },
+      {
+        key: "icare_groups",
+        label: "Nama iCare",
+        render: (_, row) => row.icare_groups?.nama_icare ?? "-",
+      },
       {
         key: "leader_id",
         label: "Leader",
-        render: (_, row) => row.jemaat?.nama_lengkap ?? "-",
+        render: (_, row) => row.icare_groups?.jemaat?.nama_lengkap ?? "-",
       },
-      { key: "hari_pertemuan",   label: "Hari" },
       {
-        key: "jam_pertemuan",
-        label: "Jam",
-        render: (v) => v ? v.slice(0, 5) : "-",
+        key: "tanggal",
+        label: "Tanggal",
+        render: (v) =>
+          v
+            ? new Date(v).toLocaleDateString("id-ID", {
+                day: "numeric", month: "short", year: "numeric",
+              })
+            : "-",
       },
-      { key: "lokasi_pertemuan", label: "Lokasi" },
-      { key: "deskripsi",        label: "Deskripsi" },
+      {
+        key: "jumlah_hadir",
+        label: "Jumlah Hadir",
+        render: (v) => (
+          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700 tabular-nums">
+            {v ?? 0}
+          </span>
+        ),
+      },
+      {
+        key: "topik",
+        label: "Topik",
+        render: (v) => <span className="text-sm text-gray-700">{v ?? "-"}</span>,
+      },
+      {
+        key: "lokasi",
+        label: "Lokasi",
+        render: (v) => <span className="text-sm text-gray-600">{v ?? "-"}</span>,
+      },
+      {
+        key: "catatan",
+        label: "Catatan",
+        render: (v) => (
+          <span className="text-sm text-gray-500 max-w-xs truncate">{v ?? "-"}</span>
+        ),
+      },
+    ],
+  },
+
+  // ─── USHER ATTENDANCE REPORTS ──────────────────────────────────────────────
+  {
+    id: "usher_attendance",
+    label: "Kehadiran Ibadah",
+    allowedRoles: ["admin", "leader"], // ← both roles
+    table: "attendance_reports",
+    select: `
+      id,
+      total_members,
+      total_visitors,
+      notes,
+      submitted_at,
+      event_occurrences(
+        occurrence_date,
+        start_time,
+        end_time,
+        events(event_name, event_type, location)
+      )
+    `,
+    searchColumn: "notes",
+    defaultSort: { column: "submitted_at", ascending: false },
+    filters: [
+      {
+        key: "submitted_at",
+        label: "Tanggal Laporan",
+        type: "date_range",
+      },
+      {
+        key: "total_members",
+        label: "Jumlah Jemaat",
+        type: "number_range",
+      },
+      {
+        key: "total_visitors",
+        label: "Jumlah Tamu",
+        type: "number_range",
+      },
+    ],
+    transformForExport: (rows: any[]) =>
+      rows.map((row) => {
+        const occ   = row.event_occurrences ?? {};
+        const ev    = occ.events ?? {};
+        const total = (row.total_members ?? 0) + (row.total_visitors ?? 0);
+        return {
+          "Nama Event":      ev.event_name  ?? "-",
+          "Tipe Event":      ev.event_type  ?? "-",
+          "Lokasi":          ev.location    ?? "-",
+          "Tanggal":         occ.occurrence_date
+            ? new Date(occ.occurrence_date).toLocaleDateString("id-ID", {
+                day: "numeric", month: "long", year: "numeric",
+              })
+            : "-",
+          "Jam Mulai":       occ.start_time ? occ.start_time.slice(0, 5) : "-",
+          "Jam Selesai":     occ.end_time   ? occ.end_time.slice(0, 5)   : "-",
+          "Jemaat (member)": row.total_members  ?? 0,
+          "Tamu (visitor)":  row.total_visitors ?? 0,
+          "Total Hadir":     total,
+          "Catatan":         row.notes ?? "-",
+          "Dilaporkan Pada": row.submitted_at
+            ? new Date(row.submitted_at).toLocaleDateString("id-ID", {
+                day: "numeric", month: "long", year: "numeric",
+              })
+            : "-",
+        };
+      }),
+    columns: [
+      {
+        key: "event_occurrences",
+        label: "Nama Event",
+        render: (_, row) => row.event_occurrences?.events?.event_name ?? "-",
+      },
+      {
+        key: "event_type",
+        label: "Tipe",
+        render: (_, row) => {
+          const v = row.event_occurrences?.events?.event_type;
+          return v ? (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+              {v}
+            </span>
+          ) : "-";
+        },
+      },
+      {
+        key: "occurrence_date",
+        label: "Tanggal",
+        render: (_, row) => {
+          const d = row.event_occurrences?.occurrence_date;
+          if (!d) return "-";
+          return new Date(d).toLocaleDateString("id-ID", {
+            day: "numeric", month: "short", year: "numeric",
+          });
+        },
+      },
+      {
+        key: "start_time",
+        label: "Waktu",
+        render: (_, row) => {
+          const s = row.event_occurrences?.start_time;
+          const e = row.event_occurrences?.end_time;
+          if (!s) return "-";
+          return e ? `${s.slice(0, 5)}–${e.slice(0, 5)}` : s.slice(0, 5);
+        },
+      },
+      {
+        key: "total_members",
+        label: "Jemaat",
+        render: (v) => (
+          <span className="font-semibold tabular-nums text-gray-700">{v ?? 0}</span>
+        ),
+      },
+      {
+        key: "total_visitors",
+        label: "Tamu",
+        render: (v) => (
+          <span className="font-semibold tabular-nums text-gray-700">{v ?? 0}</span>
+        ),
+      },
+      {
+        key: "total_hadir",
+        label: "Total",
+        render: (_, row) => {
+          const total = (row.total_members ?? 0) + (row.total_visitors ?? 0);
+          return (
+            <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-900 text-white tabular-nums">
+              {total}
+            </span>
+          );
+        },
+      },
+      {
+        key: "location",
+        label: "Lokasi",
+        render: (_, row) => row.event_occurrences?.events?.location ?? "-",
+      },
+      { key: "notes", label: "Catatan" },
+      {
+        key: "created_at",
+        label: "Dilaporkan",
+        render: (v) =>
+          v
+            ? new Date(v).toLocaleDateString("id-ID", {
+                day: "numeric", month: "short", year: "numeric",
+              })
+            : "-",
+      },
     ],
   },
 
@@ -170,6 +361,7 @@ export const REPORT_CONFIGS: ReportConfig[] = [
   {
     id: "events",
     label: "Events",
+    allowedRoles: ["admin", "leader"], // ← both roles
     table: "events",
     select: "*",
     searchColumn: "event_name",
@@ -201,18 +393,22 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "event_type",
         label: "Tipe",
-        render: (v) => v ? (
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-            {v}
-          </span>
-        ) : "-",
+        render: (v) =>
+          v ? (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+              {v}
+            </span>
+          ) : "-",
       },
       {
         key: "event_date",
         label: "Tanggal",
-        render: (v) => v ? new Date(v).toLocaleDateString("id-ID", {
-          day: "numeric", month: "long", year: "numeric"
-        }) : "-",
+        render: (v) =>
+          v
+            ? new Date(v).toLocaleDateString("id-ID", {
+                day: "numeric", month: "long", year: "numeric",
+              })
+            : "-",
       },
       {
         key: "start_time",
@@ -225,117 +421,6 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       },
       { key: "location",    label: "Lokasi" },
       { key: "description", label: "Deskripsi" },
-    ],
-  },
-
-  // ─── OFFERINGS ─────────────────────────────────────────────────────────────
-  {
-    id: "offerings",
-    label: "Persembahan",
-    table: "offerings",
-    select: "*, jemaat(nama_lengkap)",
-    searchColumn: "offering_type",
-    defaultSort: { column: "transaction_date", ascending: false },
-    filters: [
-      {
-        key: "offering_type",
-        label: "Jenis Persembahan",
-        type: "multiselect",
-        options: [
-          { value: "perpuluhan",  label: "Perpuluhan" },
-          { value: "persembahan", label: "Persembahan Umum" },
-          { value: "diakonia",    label: "Diakonia" },
-          { value: "misi",        label: "Misi" },
-          { value: "bangunan",    label: "Bangunan" },
-        ],
-      },
-      {
-        key: "payment_method",
-        label: "Metode Bayar",
-        type: "multiselect",
-        options: [
-          { value: "cash",     label: "Cash" },
-          { value: "transfer", label: "Transfer" },
-          { value: "qris",     label: "QRIS" },
-        ],
-      },
-      {
-        key: "transaction_date",
-        label: "Tanggal Transaksi",
-        type: "date_range",
-      },
-      {
-        key: "amount",
-        label: "Jumlah (Rp)",
-        type: "number_range",
-      },
-    ],
-    columns: [
-      {
-        key: "jemaat_id",
-        label: "Nama Jemaat",
-        render: (_, row) => row.jemaat?.nama_lengkap ?? "-",
-      },
-      {
-        key: "amount",
-        label: "Jumlah",
-        render: (v) => v != null
-          ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(v)
-          : "-",
-      },
-      { key: "offering_type",  label: "Jenis" },
-      { key: "payment_method", label: "Metode" },
-      {
-        key: "transaction_date",
-        label: "Tanggal",
-        render: (v) => v ? new Date(v).toLocaleDateString("id-ID") : "-",
-      },
-    ],
-  },
-
-  // ─── BAPTISM RECORDS ───────────────────────────────────────────────────────
-  {
-    id: "baptism_records",
-    label: "Data Baptisan",
-    table: "baptism_records",
-    select: "*, jemaat(nama_lengkap, gender)",
-    searchColumn: "baptized_by",
-    defaultSort: { column: "baptism_date", ascending: false },
-    filters: [
-      {
-        key: "baptism_date",
-        label: "Tanggal Baptis",
-        type: "date_range",
-      },
-      {
-        key: "baptized_by",
-        label: "Dibaptis Oleh",
-        type: "text",
-        placeholder: "Nama pendeta / gembala...",
-      },
-      {
-        key: "location",
-        label: "Lokasi",
-        type: "text",
-        placeholder: "Lokasi baptisan...",
-      },
-    ],
-    columns: [
-      {
-        key: "jemaat_id",
-        label: "Nama Jemaat",
-        render: (_, row) => row.jemaat?.nama_lengkap ?? "-",
-      },
-      {
-        key: "baptism_date",
-        label: "Tanggal Baptis",
-        render: (v) => v ? new Date(v).toLocaleDateString("id-ID", {
-          day: "numeric", month: "long", year: "numeric"
-        }) : "-",
-      },
-      { key: "baptized_by",       label: "Dibaptis Oleh" },
-      { key: "location",          label: "Lokasi" },
-      { key: "certificate_number", label: "No. Sertifikat" },
     ],
   },
 ];

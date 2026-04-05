@@ -6,7 +6,7 @@ export default function UserDashboardPage() {
 
   useEffect(() => {
     const role = localStorage.getItem("role");
-    if (role === "user") setAuthorized(true);
+    if (role === "finance") setAuthorized(true);
     else window.location.href = "/login";
   }, []); 
 

@@ -37,7 +37,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         .eq("id", authUser.id)
         .maybeSingle();
       if (profile) {
-        setUser({ full_name: profile.full_name, role: profile.role ?? "user" });
+        setUser({ full_name: profile.full_name, role: profile.role ?? "finance" });
       }
     };
     fetchUser();

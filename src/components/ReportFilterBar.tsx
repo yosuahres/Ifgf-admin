@@ -2,10 +2,10 @@
 "use client";
 
 import { X } from "lucide-react";
-import type { FilterDef, ActiveFilters } from "@/types/report.types";
+import type { FilterConfig, ActiveFilters } from "@/types/report.types";
 
 interface Props {
-  filters: FilterDef[];
+  filters: FilterConfig[];
   values: ActiveFilters;
   onChange: (key: string, value: any) => void;
   onClear: () => void;
@@ -54,7 +54,7 @@ function FilterInput({
   value,
   onChange,
 }: {
-  filter: FilterDef;
+  filter: FilterConfig;
   value: any;
   onChange: (v: any) => void;
 }) {
@@ -87,7 +87,7 @@ function FilterInput({
             className={inputCls}
           >
             <option value="">— Semua —</option>
-            {filter.options?.map((o) => (
+            {filter.options?.map((o: { value: string; label: string }) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -99,7 +99,7 @@ function FilterInput({
         <div>
           <label className={labelCls}>{filter.label}</label>
           <div className="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-md min-h-[38px] bg-white">
-            {filter.options?.map((o) => {
+            {filter.options?.map((o: { value: string; label: string }) => {
               const selected: string[] = value ?? [];
               const isActive = selected.includes(o.value);
               return (
@@ -176,22 +176,6 @@ function FilterInput({
               className={inputCls}
             />
           </div>
-        </div>
-      );
-
-    case "boolean":
-      return (
-        <div>
-          <label className={labelCls}>{filter.label}</label>
-          <select
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value === "" ? undefined : e.target.value === "true")}
-            className={inputCls}
-          >
-            <option value="">— Semua —</option>
-            <option value="true">Ya</option>
-            <option value="false">Tidak</option>
-          </select>
         </div>
       );
 

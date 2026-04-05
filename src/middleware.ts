@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
     (pathname.startsWith("/admin") ||
       pathname.startsWith("/leader") ||
       pathname.startsWith("/usher") ||
-      pathname.startsWith("/user"))
+      pathname.startsWith("/finance"))
   ) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
       (pathname.startsWith("/admin") ||
         pathname.startsWith("/leader") ||
         pathname.startsWith("/usher") ||
-        pathname.startsWith("/user"))
+        pathname.startsWith("/finance"))
     ) {
       return NextResponse.redirect(
         new URL("/login?error=unauthorized", request.url),
@@ -86,11 +86,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/usher", request.url));
     }
 
-    // Guard /user route — only admin and user roles allowed
+    // Guard /finance route — only admin and finance roles allowed
     if (
-      pathname.startsWith("/user") &&
+      pathname.startsWith("/finance") &&
       role !== "admin" &&
-      role !== "user"
+      role !== "finance"
     ) {
       const dest =
         role === "leader"
@@ -110,8 +110,8 @@ export async function middleware(request: NextRequest) {
       const dest =
         role === "leader"
           ? "/leader"
-          : role === "user"
-          ? "/user"
+          : role === "finance"
+          ? "/finance"
           : "/login?error=unauthorized";
       return NextResponse.redirect(new URL(dest, request.url));
     }
@@ -125,8 +125,8 @@ export async function middleware(request: NextRequest) {
           ? "/leader"
           : role === "usher"
           ? "/usher"
-          : role === "user"
-          ? "/user"
+          : role === "finance"
+          ? "/finance"
           : "/login";
       return NextResponse.redirect(new URL(dest, request.url));
     }

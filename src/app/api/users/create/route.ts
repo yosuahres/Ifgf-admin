@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validRoles = ["admin", "pastor", "leader", "usher", "user"];
+    const validRoles = ["admin", "pastor", "leader", "usher", "finance"];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { error: `Role tidak valid. Pilihan: ${validRoles.join(", ")}` },

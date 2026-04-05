@@ -12,10 +12,10 @@ type Profile = {
 };
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
-  admin:  { label: "Administrator", color: "bg-purple-100 text-purple-700" },
-  pastor: { label: "Pastor",        color: "bg-blue-100 text-blue-700"   },
-  leader: { label: "Leader",        color: "bg-green-100 text-green-700" },
-  user:   { label: "Member",        color: "bg-gray-100 text-gray-600"   },
+  admin:    { label: "Administrator", color: "bg-purple-100 text-purple-700" },
+  pastor:   { label: "Pastor",        color: "bg-blue-100 text-blue-700"   },
+  leader:   { label: "Leader",        color: "bg-green-100 text-green-700" },
+  finance:  { label: "Finance",       color: "bg-gray-100 text-gray-600"   },
 };
 
 type Toast = { type: "success" | "error"; message: string } | null;
@@ -101,7 +101,7 @@ export default function SettingsPage() {
       if (p) {
         const profileData: Profile = {
           full_name: p.full_name ?? "",
-          role: p.role ?? "user",
+          role: p.role ?? "finance",
           email: user.email ?? "",
         };
         setProfile(profileData);
@@ -166,7 +166,7 @@ export default function SettingsPage() {
     }
   };
 
-  const roleInfo = ROLE_LABELS[profile?.role ?? "user"] ?? ROLE_LABELS.user;
+  const roleInfo = ROLE_LABELS[profile?.role ?? "finance"] ?? ROLE_LABELS.finance;
 
   if (loadingProfile) {
     return (
