@@ -52,21 +52,35 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = authData.user.id;
+    console.log("Created auth user:", userId);
 
-    const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .upsert({ id: userId, full_name: trimmedFullName, role: trimmedRole, email: trimmedEmail }); 
+    const { data: profileData, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        { 
+          id: userId, 
+          full_name: trimmedFullName, 
+          role: trimmedRole, 
+          email: trimmedEmail 
+        },
+        { onConflict: "id" }
+      )
+      .select();
+
+    console.log("Profile upsert result:", { profileData, profileError });
 
     if (profileError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    return NextResponse.json(
-        { error: `Auth user dibuat tapi profil gagal: ${profileError.message}` },
+      console.error("Profile error details:", profileError);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return NextResponse.json(
+        { error: `Auth user dibuat tapi profil gagal: ${profileError.message || JSON.stringify(profileError)}` },
         { status: 500 },
-    );
+      );
     }
 
     return NextResponse.json({ success: true, id: userId }, { status: 201 }); 
   } catch (err: any) {
+    console.error("Create user exception:", err);
     return NextResponse.json(
       { error: err?.message ?? "Internal server error" },
       { status: 500 },
