@@ -4,11 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { reportId: string; recordId: string } }
+  { params }: { params: Promise<{ reportId: string; recordId: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const { reportId, recordId } = params;
+    const { reportId, recordId } = await params;
     const body = await req.json();
 
     const tableMap: Record<string, string> = {
@@ -52,11 +52,11 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { reportId: string; recordId: string } }
+  { params }: { params: Promise<{ reportId: string; recordId: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const { reportId, recordId } = params;
+    const { reportId, recordId } = await params;
 
     const tableMap: Record<string, string> = {
       jemaat: "jemaat",
