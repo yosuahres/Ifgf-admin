@@ -17,6 +17,9 @@ export interface ColumnConfig {
   key: string;
   label: string;
   render?: (value: any, row: any) => React.ReactNode;
+  editable?: boolean;
+  inputType?: "text" | "number" | "date" | "email" | "textarea" | "select";
+  options?: { value: string; label: string }[];
 }
 
 export interface ReportConfig {

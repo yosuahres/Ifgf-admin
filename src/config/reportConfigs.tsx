@@ -182,6 +182,8 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "jumlah_hadir",
         label: "Jumlah Hadir",
+        editable: true,
+        inputType: "number",
         render: (v) => (
           <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700 tabular-nums">
             {v ?? 0}
@@ -191,6 +193,8 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "topik",
         label: "Topik",
+        editable: true,
+        inputType: "text",
         render: (v) => <span className="text-sm text-gray-700">{v ?? "-"}</span>,
       },
       {
@@ -201,6 +205,8 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "catatan",
         label: "Catatan",
+        editable: true,
+        inputType: "textarea",
         render: (v) => (
           <span className="text-sm text-gray-500 max-w-xs truncate">{v ?? "-"}</span>
         ),
@@ -315,6 +321,8 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "total_members",
         label: "Jemaat",
+        editable: true,
+        inputType: "number",
         render: (v) => (
           <span className="font-semibold tabular-nums text-gray-700">{v ?? 0}</span>
         ),
@@ -322,6 +330,8 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "total_visitors",
         label: "Tamu",
+        editable: true,
+        inputType: "number",
         render: (v) => (
           <span className="font-semibold tabular-nums text-gray-700">{v ?? 0}</span>
         ),
@@ -343,7 +353,12 @@ export const REPORT_CONFIGS: ReportConfig[] = [
         label: "Lokasi",
         render: (_, row) => row.event_occurrences?.events?.location ?? "-",
       },
-      { key: "notes", label: "Catatan" },
+      {
+        key: "notes",
+        label: "Catatan",
+        editable: true,
+        inputType: "textarea",
+      },
       {
         key: "created_at",
         label: "Dilaporkan",
@@ -389,10 +404,23 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       },
     ],
     columns: [
-      { key: "event_name", label: "Nama Event" },
+      { key: "event_name", label: "Nama Event", editable: true, inputType: "text" },
       {
         key: "event_type",
         label: "Tipe",
+        editable: true,
+        inputType: "select",
+        options: [
+          { value: "Ibadah Umum", label: "Ibadah Umum" },
+          { value: "Ibadah Pemuda", label: "Ibadah Pemuda" },
+          { value: "Ibadah Anak", label: "Ibadah Anak" },
+          { value: "Retreat", label: "Retreat" },
+          { value: "Seminar", label: "Seminar" },
+          { value: "Konser", label: "Konser" },
+          { value: "Baptisan", label: "Baptisan" },
+          { value: "Pernikahan", label: "Pernikahan" },
+          { value: "Lainnya", label: "Lainnya" },
+        ],
         render: (v) =>
           v ? (
             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
@@ -403,6 +431,8 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "event_date",
         label: "Tanggal",
+        editable: true,
+        inputType: "date",
         render: (v) =>
           v
             ? new Date(v).toLocaleDateString("id-ID", {
@@ -413,14 +443,16 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       {
         key: "start_time",
         label: "Waktu",
+        editable: true,
+        inputType: "text",
         render: (v, row) => {
           if (!v) return "-";
           const fmt = (t: string) => t.slice(0, 5);
           return row.end_time ? `${fmt(v)} – ${fmt(row.end_time)}` : fmt(v);
         },
       },
-      { key: "location",    label: "Lokasi" },
-      { key: "description", label: "Deskripsi" },
+      { key: "location", label: "Lokasi", editable: true, inputType: "text" },
+      { key: "description", label: "Deskripsi", editable: true, inputType: "textarea" },
     ],
   },
 ];

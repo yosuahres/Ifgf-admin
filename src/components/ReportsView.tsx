@@ -18,6 +18,8 @@ import {
   Activity,
   UserCheck,
   UserPlus,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -137,6 +139,10 @@ export default function ReportsView({ role }: ReportsViewProps) {
   const [loading, setLoading]           = useState(false);
   const [page, setPage]                 = useState(1);
   const [limit, setLimit]               = useState(50);
+  const [editingRow, setEditingRow]     = useState<any | null>(null);
+  const [editValues, setEditValues]     = useState<Record<string, any>>({});
+  const [deletingId, setDeletingId]     = useState<string | null>(null);
+  const [saving, setSaving]             = useState(false);
 
   const config: ReportConfig =
     availableConfigs.find((c) => c.id === selectedConfigId) ?? availableConfigs[0];
@@ -229,6 +235,60 @@ export default function ReportsView({ role }: ReportsViewProps) {
       exportToExcel(exportData, config.label);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditClick = (row: any) => {
+    setEditingRow(row);
+    const initialValues: Record<string, any> = {};
+    config.columns.forEach((col) => {
+      if (col.editable) {
+        initialValues[col.key] = row[col.key] ?? "";
+      }
+    });
+    setEditValues(initialValues);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingRow || !editingRow.id) return;
+    setSaving(true);
+    try {
+      const response = await fetch(
+        `/api/reports/${config.id}/${editingRow.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editValues),
+        }
+      );
+      if (!response.ok) throw new Error("Failed to update");
+      // Refresh data
+      await load();
+      setEditingRow(null);
+      setEditValues({});
+    } catch (error) {
+      console.error("Edit error:", error);
+      alert("Error saving changes");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/reports/${config.id}/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete");
+      // Refresh data
+      await load();
+      setDeletingId(null);
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Error deleting record");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -365,18 +425,21 @@ export default function ReportsView({ role }: ReportsViewProps) {
                     {col.label}
                   </th>
                 ))}
+                <th className="sticky top-0 z-10 bg-gray-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-200 whitespace-nowrap">
+                  Aksi
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={config.columns.length} className="py-20 text-center">
+                  <td colSpan={config.columns.length + 1} className="py-20 text-center">
                     <Loader2 className="animate-spin mx-auto text-blue-500" size={24} />
                   </td>
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={config.columns.length} className="py-20 text-center">
+                  <td colSpan={config.columns.length + 1} className="py-20 text-center">
                     <div className="flex flex-col items-center gap-2 text-gray-400">
                       <Filter size={32} className="opacity-30" />
                       <span className="text-sm">Tidak ada data yang cocok dengan filter</span>
@@ -402,6 +465,24 @@ export default function ReportsView({ role }: ReportsViewProps) {
                         {col.render ? col.render(row[col.key], row) : (row[col.key] ?? "-")}
                       </td>
                     ))}
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditClick(row)}
+                          className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 hover:text-blue-700 transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => setDeletingId(row.id)}
+                          className="p-1.5 hover:bg-red-50 rounded-lg text-red-600 hover:text-red-700 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -443,6 +524,134 @@ export default function ReportsView({ role }: ReportsViewProps) {
           </span>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingRow && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Edit Data</h2>
+              <button
+                onClick={() => {
+                  setEditingRow(null);
+                  setEditValues({});
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {config.columns
+                  .filter((col) => col.editable)
+                  .map((col) => (
+                    <div 
+                      key={col.key} 
+                      className={`space-y-1.5 ${col.inputType === "textarea" ? "md:col-span-2" : ""}`}
+                    >
+                      <label className="block text-sm font-medium text-gray-700">
+                        {col.label}
+                      </label>
+                      {col.inputType === "textarea" ? (
+                        <textarea
+                          value={editValues[col.key] ?? ""}
+                          onChange={(e) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              [col.key]: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          rows={3}
+                        />
+                      ) : col.inputType === "select" && col.options ? (
+                        <select
+                          value={editValues[col.key] ?? ""}
+                          onChange={(e) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              [col.key]: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="">-- Pilih --</option>
+                          {col.options.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={col.inputType || "text"}
+                          value={editValues[col.key] ?? ""}
+                          onChange={(e) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              [col.key]: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setEditingRow(null);
+                  setEditValues({});
+                }}
+                disabled={saving}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-40 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={saving}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+              >
+                {saving ? "Menyimpan..." : "Simpan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">Hapus Data</h2>
+            <p className="text-sm text-gray-600">
+              Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex gap-2 pt-4">
+              <button
+                onClick={() => setDeletingId(null)}
+                disabled={saving}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-40 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => handleDelete(deletingId)}
+                disabled={saving}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-40 transition-colors"
+              >
+                {saving ? "Menghapus..." : "Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,17 @@ function parseRule(rule: string) {
   );
 }
 
+// Parse date string "YYYY-MM-DD" as UTC date (not local timezone)
+function parseUTCDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+// Format Date to "YYYY-MM-DD" in UTC
+function formatUTCDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
 // Get all weekly dates from start to end on a given weekday
 function weeklyDates(start: Date, end: Date, weekday: string): Date[] {
   const targetDay = DAYS.indexOf(weekday);
@@ -21,12 +32,12 @@ function weeklyDates(start: Date, end: Date, weekday: string): Date[] {
   const cur = new Date(start);
 
   // Advance to the first occurrence of the target weekday on or after start
-  const diff = (targetDay - cur.getDay() + 7) % 7;
-  cur.setDate(cur.getDate() + diff);
+  const diff = (targetDay - cur.getUTCDay() + 7) % 7;
+  cur.setUTCDate(cur.getUTCDate() + diff);
 
   while (cur <= end) {
     dates.push(new Date(cur));
-    cur.setDate(cur.getDate() + 7);
+    cur.setUTCDate(cur.getUTCDate() + 7);
   }
   return dates;
 }
@@ -48,11 +59,11 @@ export async function generateOccurrences(event: {
   const supabase = createClient();
 
   let dates: Date[] = [];
-  const start = new Date(event.event_date);
+  const start = parseUTCDate(event.event_date);
 
   if (event.recurrence_rule && event.recurrence_end_date) {
     const rule = parseRule(event.recurrence_rule);
-    const end = new Date(event.recurrence_end_date);
+    const end = parseUTCDate(event.recurrence_end_date);
 
     if (rule.freq === "weekly" && rule.byday) {
       dates = weeklyDates(start, end, rule.byday.toUpperCase());
@@ -72,7 +83,7 @@ export async function generateOccurrences(event: {
 
   const rows = dates.map((d) => ({
     event_id: event.id,
-    occurrence_date: d.toISOString().split("T")[0],
+    occurrence_date: formatUTCDate(d),
     start_time: event.start_time ?? null,
     end_time: event.end_time ?? null,
   }));

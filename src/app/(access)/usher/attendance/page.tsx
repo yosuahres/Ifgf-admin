@@ -56,17 +56,22 @@ export default function UsherAttendancePage() {
   const [loadingOcc, setLoadingOcc] = useState(true);
 
   useEffect(() => {
-    const from = new Date();
-    const to = new Date();
-    to.setDate(to.getDate() + 7);
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const nextWeek = new Date(today);
+    nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
+    
+    const fromDate = today.toISOString().split("T")[0];
+    const toDate = nextWeek.toISOString().split("T")[0];
+    
     supabase
       .from("event_occurrences")
       .select(
         "id, occurrence_date, start_time, end_time, events(event_name, event_type, location)"
       )
       .eq("is_cancelled", false)
-      .gte("occurrence_date", from.toISOString().split("T")[0])
-      .lte("occurrence_date", to.toISOString().split("T")[0])
+      .gte("occurrence_date", fromDate)
+      .lte("occurrence_date", toDate)
       .order("occurrence_date", { ascending: true })
       .limit(20)
       .then(({ data }) => {
