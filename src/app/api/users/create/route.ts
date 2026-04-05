@@ -54,23 +54,21 @@ export async function POST(req: NextRequest) {
     const userId = authData.user.id;
     console.log("Created auth user:", userId);
 
+    // Insert profile (don't use upsert since ID is already unique from auth)
     const { data: profileData, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .upsert(
-        { 
-          id: userId, 
-          full_name: trimmedFullName, 
-          role: trimmedRole, 
-          email: trimmedEmail 
-        },
-        { onConflict: "id" }
-      )
+      .insert({ 
+        id: userId, 
+        full_name: trimmedFullName, 
+        role: trimmedRole, 
+        email: trimmedEmail 
+      })
       .select();
 
-    console.log("Profile upsert result:", { profileData, profileError });
+    console.log("Profile insert result:", { profileData, profileError });
 
     if (profileError) {
-      console.error("Profile error details:", profileError);
+      console.error("Profile error details:", JSON.stringify(profileError, null, 2));
       await supabaseAdmin.auth.admin.deleteUser(userId);
       return NextResponse.json(
         { error: `Auth user dibuat tapi profil gagal: ${profileError.message || JSON.stringify(profileError)}` },
