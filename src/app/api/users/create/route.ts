@@ -11,10 +11,15 @@ const supabaseAdmin = createClient<Database>(
 export async function POST(req: NextRequest) {
   try {
     const { email, password, full_name, role } = await req.json();
+    
+    console.log("=== USER CREATE START ===");
+    console.log("Raw input:", { email, password, full_name, role });
 
     const trimmedEmail = email?.trim?.() || "";
     const trimmedFullName = full_name?.trim?.() || "";
     const trimmedRole = role?.trim?.() || "";
+    
+    console.log("After trim:", { trimmedEmail, trimmedFullName, trimmedRole });
     
     if (!trimmedEmail || !password || !trimmedFullName || !trimmedRole) {
       const missing = [];
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
       if (!trimmedFullName) missing.push("full_name");
       if (!trimmedRole) missing.push("role");
       
-      console.error("Validation failed - missing fields:", missing, { email, password, full_name, role });
+      console.error("Validation failed - missing fields:", missing);
       
       return NextResponse.json(
         { error: `Field wajib diisi: ${missing.join(", ")}` },
@@ -52,23 +57,26 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = authData.user.id;
-    console.log("Created auth user:", userId);
+    console.log("✓ Created auth user:", userId);
+
+    const profilePayload = { 
+      id: userId, 
+      full_name: trimmedFullName, 
+      role: trimmedRole, 
+      email: trimmedEmail 
+    };
+    console.log("About to insert profile with:", profilePayload);
 
     // Insert profile (don't use upsert since ID is already unique from auth)
     const { data: profileData, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .insert({ 
-        id: userId, 
-        full_name: trimmedFullName, 
-        role: trimmedRole, 
-        email: trimmedEmail 
-      })
+      .insert(profilePayload)
       .select();
 
     console.log("Profile insert result:", { profileData, profileError });
 
     if (profileError) {
-      console.error("Profile error details:", JSON.stringify(profileError, null, 2));
+      console.error("❌ Profile insert failed:", JSON.stringify(profileError, null, 2));
       await supabaseAdmin.auth.admin.deleteUser(userId);
       return NextResponse.json(
         { error: `Auth user dibuat tapi profil gagal: ${profileError.message || JSON.stringify(profileError)}` },
@@ -76,6 +84,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    console.log("✓ User created successfully:", userId);
     return NextResponse.json({ success: true, id: userId }, { status: 201 }); 
   } catch (err: any) {
     console.error("Create user exception:", err);
