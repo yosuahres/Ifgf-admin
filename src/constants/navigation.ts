@@ -50,11 +50,10 @@ export const financeNav: NavItem[] = [
     icon: Group,
     children: [
       { href: "/finance/cashflow", label: "Cash Report", icon: BookOpen },
-      { href: "/finance/cashin", label: "Cash In", icon: DollarSign },
-      { href: "/finance/cashout", label: "Cash Out", icon: DollarSign },
     ],
   },
   { href: "/finance/persembahan", label: "Persembahan", icon: BookOpen },
+  { href: "/finance/reporting", label: "Reporting", icon: BookOpen },
 ];
 
 export const usherNav: NavItem[] = [
