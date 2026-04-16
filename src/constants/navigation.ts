@@ -14,6 +14,7 @@ export type NavItem = {
   href?: string;           
   label: string;
   icon: LucideIcon;
+
   children?: Omit<NavItem, "children">[];  
 };
 
@@ -45,15 +46,16 @@ export const leaderNav: NavItem[] = [
 
 export const financeNav: NavItem[] = [
   { href: "/finance", label: "Dashboard", icon: LayoutDashboard },
-  {
-    label: "Cashflow",
-    icon: Group,
-    children: [
-      { href: "/finance/cashflow", label: "Cash Report", icon: BookOpen },
-    ],
-  },
-  { href: "/finance/persembahan", label: "Persembahan", icon: BookOpen },
-  { href: "/finance/reporting", label: "Reporting", icon: BookOpen },
+  // {
+  //   label: "Cashflow",
+    
+  //   icon: Group,
+  //   children: [
+  //     { href: "/finance/cashflow", label: "Cash Report", icon: BookOpen },
+  //   ],
+  // },
+  { href: "/finance/categories", label: "Categories", icon: BookOpen },
+  { href: "/finance/cashflow", label: "Cashflow", icon: BookOpen },
 ];
 
 export const usherNav: NavItem[] = [
